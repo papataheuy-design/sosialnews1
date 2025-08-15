@@ -521,8 +521,23 @@
             {
                 name: "CNN Indonesia",
                 url: "https://api.rss2json.com/v1/api.json?rss_url=https://www.cnnindonesia.com/rss"
+            },
+            {
+                name: "Tribun News",
+                url: "https://api.rss2json.com/v1/api.json?rss_url=https://www.tribunnews.com/rss"
+            },
+            {
+                name: "Kumparan",
+                url: "https://api.rss2json.com/v1/api.json?rss_url=https://lapi.kumparan.com/v2.0/rss/"
             }
         ];
+        
+        // Cache for news data
+        const newsCache = {
+            data: null,
+            timestamp: null,
+            cacheDuration: 15 * 60 * 1000 // 15 minutes cache
+        };
         
         // Helper Functions
         function cleanText(text) {
@@ -612,8 +627,10 @@
             });
             bannerSlides = [];
             
-            // Add top 3 news as slides
-            newsData.slice(0, 3).forEach((news, index) => {
+            // Add top 15 news as slides (or all if less than 15)
+            const slidesToShow = Math.min(newsData.length, 15);
+            for (let i = 0; i < slidesToShow; i++) {
+                const news = newsData[i];
                 const slide = document.createElement('div');
                 slide.className = 'banner-slide';
                 slide.style.backgroundImage = `url(${news.thumbnail})`;
@@ -628,13 +645,17 @@
                                 <span class="material-icons">chat_bubble</span>
                                 Diskusikan
                             </button>
+                            <button class="reaction-btn" onclick="likeNews('${news.id}')">
+                                <span class="material-icons">thumb_up</span>
+                                Suka
+                            </button>
                         </div>
                     </div>
                 `;
                 
                 bannerContainer.insertBefore(slide, loadingElement);
                 bannerSlides.push(slide);
-            });
+            }
             
             // Hide loading and show first slide
             if (loadingElement) loadingElement.style.display = 'none';
@@ -693,31 +714,96 @@
             });
         }
         
-        // Fetch News with Fallback
+        // Like News
+        function likeNews(newsId) {
+            if (!currentUser || currentUser.isAnonymous) {
+                showAuthModal();
+                return;
+            }
+            
+            const newsRef = db.collection('newsLikes').doc(`${newsId}_${currentUser.uid}`);
+            
+            db.runTransaction(transaction => {
+                return transaction.get(newsRef).then(doc => {
+                    if (doc.exists) {
+                        transaction.delete(newsRef);
+                    } else {
+                        transaction.set(newsRef, {
+                            newsId: newsId,
+                            userId: currentUser.uid,
+                            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                    }
+                });
+            }).catch(error => {
+                console.error("Transaction failed:", error);
+            });
+        }
+        
+        // Fetch News with Fallback and Cache
         async function fetchNews() {
+            // Check cache first
+            if (newsCache.data && newsCache.timestamp && 
+                (Date.now() - newsCache.timestamp < newsCache.cacheDuration)) {
+                return newsCache.data;
+            }
+            
             try {
                 // Try all sources until success
-                for (const source of newsSources) {
-                    try {
-                        const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(source.url.split('rss_url=')[1]}`);
-                        const data = await res.json();
-                        
-                        if (data.items && data.items.length > 0) {
-                            return data.items.map(item => ({
-                                id: item.guid || Math.random().toString(36).substring(7),
-                                title: item.title || "Judul tidak tersedia",
-                                description: cleanText(item.description) || "Deskripsi tidak tersedia",
-                                content: cleanText(item.content) || cleanText(item.description) || "Konten tidak tersedia",
-                                thumbnail: item.enclosure?.link || extractImage(item.description),
-                                link: item.link || "#",
-                                pubDate: item.pubDate || new Date().toISOString(),
-                                source: source.name
-                            }));
-                        }
-                    } catch (e) {
-                        console.warn(`Failed to fetch from ${source.name}:`, e);
-                        continue;
+                const sourcePromises = newsSources.map(source => {
+                    return fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(source.url.split('rss_url=')[1]}`)
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.items && data.items.length > 0) {
+                                return data.items.map(item => ({
+                                    id: item.guid || Math.random().toString(36).substring(7),
+                                    title: item.title || "Judul tidak tersedia",
+                                    description: cleanText(item.description) || "Deskripsi tidak tersedia",
+                                    content: cleanText(item.content) || cleanText(item.description) || "Konten tidak tersedia",
+                                    thumbnail: item.enclosure?.link || extractImage(item.description),
+                                    link: item.link || "#",
+                                    pubDate: item.pubDate || new Date().toISOString(),
+                                    source: source.name
+                                }));
+                            }
+                            return [];
+                        })
+                        .catch(e => {
+                            console.warn(`Failed to fetch from ${source.name}:`, e);
+                            return [];
+                        });
+                });
+                
+                // Wait for all sources, then combine results
+                const results = await Promise.all(sourcePromises);
+                const combinedNews = results.flat();
+                
+                // Remove duplicates by title
+                const uniqueNews = [];
+                const titles = new Set();
+                
+                for (const news of combinedNews) {
+                    if (!titles.has(news.title)) {
+                        titles.add(news.title);
+                        uniqueNews.push(news);
                     }
+                }
+                
+                // Sort by date (newest first)
+                uniqueNews.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
+                
+                // Update cache
+                newsCache.data = uniqueNews;
+                newsCache.timestamp = Date.now();
+                
+                return uniqueNews;
+                
+            } catch (e) {
+                console.error("Error in fetchNews:", e);
+                
+                // Fallback to cache if available
+                if (newsCache.data) {
+                    return newsCache.data;
                 }
                 
                 // Fallback data if all sources fail
@@ -731,10 +817,6 @@
                     pubDate: new Date().toISOString(),
                     source: "NEWSHUB"
                 }];
-                
-            } catch (e) {
-                console.error("Error in fetchNews:", e);
-                return [];
             }
         }
         
