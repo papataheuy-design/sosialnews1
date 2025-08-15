@@ -86,7 +86,7 @@
             object-fit: cover;
         }
         
-        /* Banner Slideshow - Improved */
+        /* Banner Slideshow */
         .banner-container {
             position: relative;
             width: 100%;
@@ -118,9 +118,6 @@
         
         .banner-content {
             max-width: 70%;
-            background: rgba(0,0,0,0.6);
-            padding: 20px;
-            border-radius: 8px;
         }
         
         .banner-content h2 {
@@ -326,37 +323,6 @@
             color: var(--primary);
         }
         
-        /* Comment Section */
-        .comment-section {
-            margin-top: 15px;
-            padding-left: 20px;
-            border-left: 2px solid #eee;
-        }
-        
-        .comment-form {
-            display: flex;
-            gap: 10px;
-            margin-top: 10px;
-        }
-        
-        .comment-input {
-            flex: 1;
-            padding: 8px 12px;
-            border: 1px solid #ddd;
-            border-radius: 20px;
-            font-family: 'Poppins', sans-serif;
-            resize: none;
-        }
-        
-        .comment-submit {
-            background: var(--primary);
-            color: white;
-            border: none;
-            border-radius: 20px;
-            padding: 0 15px;
-            cursor: pointer;
-        }
-        
         /* Auth Modal */
         .auth-modal {
             display: none;
@@ -428,7 +394,7 @@
         </button>
     </header>
     
-    <!-- Banner Slideshow - Improved -->
+    <!-- Banner Slideshow -->
     <div class="banner-container" id="bannerContainer">
         <!-- Slides will be added dynamically -->
         
@@ -512,9 +478,9 @@
         let bannerSlides = [];
         let currentSlideIndex = 0;
         let slideInterval;
-        const slideDuration = 8000; // 8 seconds
+        const slideDuration = 10000; // 10 seconds
         
-        // Expanded News Sources
+        // News Sources with Fallback
         const newsSources = [
             {
                 name: "Detik",
@@ -527,18 +493,6 @@
             {
                 name: "CNN Indonesia",
                 url: "https://api.rss2json.com/v1/api.json?rss_url=https://www.cnnindonesia.com/rss"
-            },
-            {
-                name: "BBC Indonesia",
-                url: "https://api.rss2json.com/v1/api.json?rss_url=https://www.bbc.com/indonesia/index.xml"
-            },
-            {
-                name: "Tempo",
-                url: "https://api.rss2json.com/v1/api.json?rss_url=https://rss.tempo.co/"
-            },
-            {
-                name: "Kumparan",
-                url: "https://api.rss2json.com/v1/api.json?rss_url=https://lapi.kumparan.com/v2.0/rss/"
             }
         ];
         
@@ -617,13 +571,12 @@
             }
         }
         
-        // Banner Slideshow Functions - Improved
+        // Banner Slideshow Functions
         function initBannerSlides() {
             const bannerContainer = document.getElementById('bannerContainer');
-            bannerContainer.innerHTML = ''; // Clear existing slides
             
-            // Add all news as slides (not just top 3)
-            newsData.forEach((news, index) => {
+            // Add top 3 news as slides
+            newsData.slice(0, 3).forEach((news, index) => {
                 const slide = document.createElement('div');
                 slide.className = 'banner-slide';
                 slide.style.backgroundImage = `url(${news.thumbnail})`;
@@ -638,10 +591,6 @@
                                 <span class="material-icons">chat_bubble</span>
                                 Diskusikan
                             </button>
-                            <button class="reaction-btn" onclick="window.open('${news.link}', '_blank')">
-                                <span class="material-icons">open_in_new</span>
-                                Baca Berita
-                            </button>
                         </div>
                     </div>
                 `;
@@ -650,10 +599,9 @@
                 bannerSlides.push(slide);
             });
             
-            // Show first slide if available
+            // Show first slide
             if (bannerSlides.length > 0) {
                 bannerSlides[0].classList.add('active');
-                currentSlideIndex = 0;
             }
             
             // Start auto slide
@@ -662,18 +610,18 @@
         
         // Start Auto Slideshow
         function startSlideShow() {
-            clearInterval(slideInterval); // Clear any existing interval
-            
-            if (bannerSlides.length <= 1) return; // No need for slideshow if only one slide
-            
-            slideInterval = setInterval(() => {
-                nextSlide();
-            }, slideDuration);
+            slideInterval = setInterval(nextSlide, slideDuration);
+        }
+        
+        // Reset Slide Timer
+        function resetSlideTimer() {
+            clearInterval(slideInterval);
+            startSlideShow();
         }
         
         // Next Slide
         function nextSlide() {
-            if (bannerSlides.length <= 1) return;
+            if (bannerSlides.length === 0) return;
             
             bannerSlides[currentSlideIndex].classList.remove('active');
             currentSlideIndex = (currentSlideIndex + 1) % bannerSlides.length;
@@ -682,7 +630,7 @@
         
         // Previous Slide
         function prevSlide() {
-            if (bannerSlides.length <= 1) return;
+            if (bannerSlides.length === 0) return;
             
             bannerSlides[currentSlideIndex].classList.remove('active');
             currentSlideIndex = (currentSlideIndex - 1 + bannerSlides.length) % bannerSlides.length;
@@ -704,41 +652,31 @@
             });
         }
         
-        // Fetch News with Fallback - Improved
+        // Fetch News with Fallback
         async function fetchNews() {
             try {
-                // Try all sources and combine results
-                const allNews = [];
-                
+                // Try all sources until success
                 for (const source of newsSources) {
                     try {
                         const res = await fetch(source.url);
                         const data = await res.json();
                         
                         if (data.items && data.items.length > 0) {
-                            const sourceNews = data.items.map(item => ({
+                            return data.items.map(item => ({
                                 id: item.guid || Math.random().toString(36).substring(7),
                                 title: item.title || "Judul tidak tersedia",
                                 description: cleanText(item.description) || "Deskripsi tidak tersedia",
                                 content: cleanText(item.content) || cleanText(item.description) || "Konten tidak tersedia",
-                                thumbnail: item.enclosure?.link || extractImage(item.description) || 'https://via.placeholder.com/600x400?text=NEWSHUB',
+                                thumbnail: item.enclosure?.link || extractImage(item.description),
                                 link: item.link || "#",
                                 pubDate: item.pubDate || new Date().toISOString(),
                                 source: source.name
                             }));
-                            
-                            allNews.push(...sourceNews);
                         }
                     } catch (e) {
                         console.warn(`Failed to fetch from ${source.name}:`, e);
                         continue;
                     }
-                }
-                
-                // If we got news from any source, return them
-                if (allNews.length > 0) {
-                    // Sort by date (newest first)
-                    return allNews.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
                 }
                 
                 // Fallback data if all sources fail
@@ -788,7 +726,7 @@
                 });
         }
         
-        // Render Discussions with Improved Comment Section
+        // Render Discussions
         function renderDiscussions() {
             const discussionList = document.getElementById('discussionList');
             discussionList.innerHTML = '';
@@ -831,110 +769,58 @@
                             <span class="material-icons">thumb_up</span>
                             <span id="like-count-${discussion.id}">${discussion.likes?.length || 0}</span>
                         </button>
-                        <button class="action-btn" onclick="toggleCommentForm('${discussion.id}')">
-                            <span class="material-icons">comment</span>
-                            <span>Komentar</span>
+                        <button class="action-btn" onclick="replyToDiscussion('${discussion.id}')">
+                            <span class="material-icons">reply</span>
+                            <span>Balas</span>
                         </button>
                     </div>
-                    <div id="comment-section-${discussion.id}" class="comment-section">
-                        <!-- Comments will be loaded here -->
-                    </div>
-                    <div id="comment-form-${discussion.id}" class="comment-form" style="display: none;">
-                        <input type="text" class="comment-input" placeholder="Tulis komentar..." id="comment-input-${discussion.id}">
-                        <button class="comment-submit" onclick="addComment('${discussion.id}')">
-                            <span class="material-icons">send</span>
-                        </button>
+                    <div id="replies-${discussion.id}" style="margin-top: 15px; padding-left: 20px; border-left: 2px solid #eee;">
+                        <!-- Replies will be loaded here -->
                     </div>
                 `;
                 
                 discussionList.appendChild(discussionItem);
                 
-                // Load comments for this discussion
-                loadComments(discussion.id);
+                // Load replies for this discussion
+                loadReplies(discussion.id);
                 
                 // Update like count
                 updateLikeCount(discussion.id);
             });
         }
         
-        // Load Comments for a Discussion
-        function loadComments(discussionId) {
-            db.collection('comments')
+        // Load Replies
+        function loadReplies(discussionId) {
+            db.collection('replies')
                 .where('discussionId', '==', discussionId)
                 .orderBy('timestamp', 'asc')
                 .onSnapshot(snap => {
-                    const commentsContainer = document.getElementById(`comment-section-${discussionId}`);
-                    commentsContainer.innerHTML = '';
+                    const repliesContainer = document.getElementById(`replies-${discussionId}`);
+                    repliesContainer.innerHTML = '';
                     
                     snap.forEach(doc => {
-                        const comment = doc.data();
-                        const commentEl = document.createElement('div');
-                        commentEl.style.marginBottom = '15px';
+                        const reply = doc.data();
+                        const replyEl = document.createElement('div');
+                        replyEl.style.marginBottom = '15px';
                         
-                        commentEl.innerHTML = `
+                        replyEl.innerHTML = `
                             <div style="display: flex; align-items: center; margin-bottom: 5px;">
                                 <div class="user-avatar" style="width: 30px; height: 30px; font-size: 0.8rem;">
-                                    ${comment.userPhotoURL ? 
-                                        `<img src="${comment.userPhotoURL}" alt="${comment.userDisplayName}">` : 
-                                        comment.userDisplayName?.charAt(0).toUpperCase() || 'A'}
+                                    ${reply.userPhotoURL ? 
+                                        `<img src="${reply.userPhotoURL}" alt="${reply.userDisplayName}">` : 
+                                        reply.userDisplayName?.charAt(0).toUpperCase() || 'A'}
                                 </div>
                                 <div style="margin-left: 10px;">
-                                    <div style="font-weight: 500; font-size: 0.9rem;">${comment.userDisplayName || 'Anonymous'}</div>
-                                    <div style="font-size: 0.7rem; color: var(--gray);">${formatDate(comment.timestamp?.toDate())}</div>
+                                    <div style="font-weight: 500; font-size: 0.9rem;">${reply.userDisplayName || 'Anonymous'}</div>
+                                    <div style="font-size: 0.7rem; color: var(--gray);">${formatDate(reply.timestamp?.toDate())}</div>
                                 </div>
                             </div>
-                            <div style="font-size: 0.9rem;">${comment.text}</div>
+                            <div style="font-size: 0.9rem;">${reply.text}</div>
                         `;
                         
-                        commentsContainer.appendChild(commentEl);
+                        repliesContainer.appendChild(replyEl);
                     });
                 });
-        }
-        
-        // Toggle Comment Form
-        function toggleCommentForm(discussionId) {
-            if (!currentUser || currentUser.isAnonymous) {
-                showAuthModal();
-                return;
-            }
-            
-            const commentForm = document.getElementById(`comment-form-${discussionId}`);
-            commentForm.style.display = commentForm.style.display === 'none' ? 'flex' : 'none';
-            
-            if (commentForm.style.display === 'flex') {
-                document.getElementById(`comment-input-${discussionId}`).focus();
-            }
-        }
-        
-        // Add Comment
-        function addComment(discussionId) {
-            if (!currentUser || currentUser.isAnonymous) {
-                showAuthModal();
-                return;
-            }
-            
-            const commentInput = document.getElementById(`comment-input-${discussionId}`);
-            const text = commentInput.value.trim();
-            
-            if (!text) {
-                alert('Komentar tidak boleh kosong!');
-                return;
-            }
-            
-            db.collection('comments').add({
-                discussionId: discussionId,
-                text: text,
-                userId: currentUser.uid,
-                userDisplayName: currentUser.displayName || 'Anonymous',
-                userPhotoURL: currentUser.photoURL || null,
-                timestamp: firebase.firestore.FieldValue.serverTimestamp()
-            }).then(() => {
-                commentInput.value = '';
-                document.getElementById(`comment-form-${discussionId}`).style.display = 'none';
-            }).catch(error => {
-                console.error("Error adding comment:", error);
-                alert('Gagal menambahkan komentar. Silakan coba lagi.');
-            });
         }
         
         // Update Like Count
@@ -1023,6 +909,29 @@
             });
         }
         
+        // Reply to Discussion
+        function replyToDiscussion(discussionId) {
+            if (!currentUser || currentUser.isAnonymous) {
+                showAuthModal();
+                return;
+            }
+            
+            const replyText = prompt("Tulis balasan Anda:");
+            if (!replyText) return;
+            
+            db.collection('replies').add({
+                discussionId: discussionId,
+                text: replyText,
+                userId: currentUser.uid,
+                userDisplayName: currentUser.displayName || 'Anonymous',
+                userPhotoURL: currentUser.photoURL || null,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            }).catch(error => {
+                console.error("Error adding reply:", error);
+                alert('Gagal menambahkan balasan. Silakan coba lagi.');
+            });
+        }
+        
         // Auth Functions
         function showAuthModal() {
             document.getElementById('authModal').style.display = 'block';
@@ -1041,7 +950,7 @@
                 resetSlideTimer();
             });
             
-            document.getElementById('nextSlide').addListener('click', () => {
+            document.getElementById('nextSlide').addEventListener('click', () => {
                 nextSlide();
                 resetSlideTimer();
             });
