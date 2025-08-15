@@ -1,379 +1,167 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>NEWSHUB — Diskusi Berita & Lokal</title>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet" />
-  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>NEWSHUB Diskusi</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <style>
-    :root{--primary:#4361ee;--dark:#222;--muted:#6b7280;--card:#fff;--bg:#f5f7fa}
-    *{box-sizing:border-box} body{margin:0;font-family:Poppins,sans-serif;background:var(--bg);color:var(--dark)}
-    header{position:sticky;top:0;z-index:10;display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:var(--primary);color:#fff}
-    .brand{font-weight:600}
-    #authBtn{display:flex;gap:8px;align-items:center;border:none;border-radius:20px;background:#ffffff22;color:#fff;padding:6px 12px;cursor:pointer}
-    #authBtn img{width:28px;height:28px;border-radius:50%;object-fit:cover}
-    .wrap{max-width:1000px;margin:14px auto;padding:0 12px}
-    /* Banner */
-    .banner{height:300px;position:relative;border-radius:12px;overflow:hidden;background:#e5e7eb}
-    .slide{position:absolute;inset:0;opacity:0;transition:opacity .7s;background-size:cover;background-position:center;display:flex;flex-direction:column;justify-content:flex-end;padding:18px;color:#fff;background-color:rgba(0,0,0,.35);background-blend-mode:darken}
+    body{margin:0;font-family:Poppins,sans-serif;background:#f5f7fa;color:#222}
+    header{display:flex;justify-content:space-between;align-items:center;padding:10px 20px;background:#4361ee;color:#fff;position:sticky;top:0;z-index:10}
+    .logo{font-weight:600;font-size:18px}
+    #authBtn{background:#fff2;border:none;padding:6px 12px;border-radius:20px;color:#fff;cursor:pointer;display:flex;align-items:center;gap:8px}
+    #authBtn img{width:28px;height:28px;border-radius:50%}
+    .banner{height:280px;position:relative;overflow:hidden}
+    .slide{position:absolute;width:100%;height:100%;opacity:0;transition:opacity 1s;background-size:cover;background-position:center;display:flex;flex-direction:column;justify-content:flex-end;padding:20px;color:#fff;background-color:rgba(0,0,0,.4);background-blend-mode:darken}
     .slide.active{opacity:1}
-    .slide h2{margin:0 0 6px;font-size:18px}
+    .slide h2{margin:0 0 8px;font-size:20px}
     .slide p{margin:0 0 10px;font-size:14px}
-    .slide .btns{display:flex;gap:10px}
-    .btn{display:inline-flex;gap:6px;align-items:center;border:none;border-radius:16px;padding:6px 12px;cursor:pointer;font-size:13px}
-    .btn.white{background:#ffffffdd;color:#111}
-    .btn.ghost{background:#ffffff33;color:#fff}
-    .nav{position:absolute;inset:0;display:flex;justify-content:space-between;align-items:center;padding:0 8px;pointer-events:none}
-    .nav button{pointer-events:auto;border:none;border-radius:50%;width:36px;height:36px;display:grid;place-items:center;background:#00000033;color:#fff;cursor:pointer}
-    /* Form */
-    .card{background:var(--card);border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
-    .post-form{padding:12px 12px 14px}
-    textarea{width:100%;border:1px solid #e5e7eb;border-radius:10px;padding:10px;resize:vertical;min-height:70px;font-family:inherit}
-    .row{display:flex;gap:8px;margin-top:8px;align-items:center}
-    .row .fill{flex:1}
-    .row .btn{background:var(--primary);color:#fff}
-    /* List */
-    h3{margin:16px 4px}
-    #list .empty,#list .loading{text-align:center;color:var(--muted);padding:16px}
-    .item{padding:14px}
-    .item+.item{border-top:1px solid #f0f0f0}
-    .head{display:flex;gap:10px;align-items:center}
-    .avatar{width:34px;height:34px;border-radius:50%;background:#e5e7eb;overflow:hidden;display:grid;place-items:center}
-    .avatar img{width:100%;height:100%;object-fit:cover}
-    .meta{line-height:1.2}
-    .name{font-weight:600;font-size:14px}
-    .time{font-size:12px;color:var(--muted)}
-    .text{margin:8px 0;white-space:pre-wrap}
-    .acts{display:flex;gap:10px;align-items:center;margin-top:6px}
-    .acts .link{display:inline-flex;gap:6px;align-items:center;font-size:13px;color:#374151;background:#f3f4f6;border:none;border-radius:14px;padding:4px 10px;cursor:pointer}
-    .acts .danger{background:#fee2e2;color:#991b1b}
-    .news-ref{margin-top:8px;padding:10px;border-left:3px solid var(--primary);background:#f8fafc;border-radius:8px}
-    /* Replies (lazy) */
-    .replies{margin-top:10px;padding-left:12px;border-left:2px solid #eee}
-    .r-item{margin-top:10px}
-    .r-item .head{gap:8px}
-    .reply-form{margin-top:10px;display:flex;gap:8px}
-    .reply-form textarea{min-height:50px}
-    @media (max-width:640px){.banner{height:240px}}
+    .actions{display:flex;gap:10px}
+    .btn{display:flex;align-items:center;gap:5px;padding:4px 10px;border:none;border-radius:16px;cursor:pointer;font-size:13px}
+    .btn.source{background:#fff2;color:#fff}
+    .btn.react{background:#fff2;color:#fff}
+    .forum{max-width:700px;margin:20px auto;padding:0 15px}
+    .form{background:#fff;padding:15px;border-radius:8px;margin-bottom:20px;box-shadow:0 1px 4px rgba(0,0,0,.1)}
+    textarea{width:100%;padding:10px;border:1px solid #ccc;border-radius:6px;font-family:inherit;margin-bottom:10px}
+    .discussion{background:#fff;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.1);margin-bottom:15px;padding:15px}
+    .discussion .head{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+    .discussion .head img{width:32px;height:32px;border-radius:50%}
+    .discussion .user{font-weight:600;font-size:14px}
+    .discussion .time{font-size:12px;color:#666}
+    .discussion .text{margin:8px 0}
+    .discussion .act{display:flex;gap:15px;font-size:13px;align-items:center}
+    .loading{text-align:center;padding:20px;color:#666}
+    @media(max-width:500px){.slide h2{font-size:16px}}
   </style>
 </head>
 <body>
 <header>
-  <div class="brand">NEWSHUB</div>
+  <div class="logo">NEWSHUB</div>
   <button id="authBtn"><span class="material-icons">account_circle</span> Masuk</button>
 </header>
 
-<div class="wrap">
-  <!-- Banner Berita -->
-  <div class="banner card" id="banner">
-    <div class="loading" style="text-align:center;color:#555;position:absolute;inset:0;display:grid;place-items:center">Memuat berita…</div>
-    <div class="nav"><button id="prev">❮</button><button id="next">❯</button></div>
-  </div>
+<!-- Banner Berita -->
+<div class="banner" id="banner"><div class="loading">Memuat berita...</div></div>
 
-  <!-- Form Posting -->
-  <div class="card post-form" style="margin-top:12px">
-    <textarea id="input" placeholder="Tulis pendapatmu atau tempelkan judul berita…"></textarea>
-    <div class="row">
-      <button id="postBtn" class="btn">Posting</button>
-      <div class="fill"></div>
-      <small id="postingAs" style="color:var(--muted)"></small>
-    </div>
+<!-- Forum Diskusi -->
+<div class="forum">
+  <div class="form">
+    <textarea id="input" rows="3" placeholder="Apa pendapatmu?"></textarea>
+    <button id="postBtn">Posting</button>
   </div>
-
-  <!-- Daftar Diskusi -->
   <h3>Diskusi Terbaru</h3>
-  <div id="list" class="card">
-    <div class="loading">Memuat diskusi…</div>
-  </div>
+  <div id="list"><div class="loading">Memuat diskusi...</div></div>
 </div>
 
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
-
 <script>
-/* ======================= Firebase Setup ======================= */
-const firebaseConfig={
-  apiKey:"AIzaSyAN825UwYIJ6zGgOpb8fYWZBeBfOSvNNU4",
-  authDomain:"socialnewshariini.firebaseapp.com",
-  projectId:"socialnewshariini",
-  storageBucket:"socialnewshariini.appspot.com",
-  messagingSenderId:"579951188459",
-  appId:"1:579951188459:web:83322616a6bfd971eea1ae"
-};
+const firebaseConfig={apiKey:"AIzaSyAN825UwYIJ6zGgOpb8fYWZBeBfOSvNNU4",
+authDomain:"socialnewshariini.firebaseapp.com",projectId:"socialnewshariini",
+storageBucket:"socialnewshariini.appspot.com",messagingSenderId:"579951188459",
+appId:"1:579951188459:web:83322616a6bfd971eea1ae"};
 firebase.initializeApp(firebaseConfig);
-const auth=firebase.auth(), db=firebase.firestore();
+const auth=firebase.auth(),db=firebase.firestore();
+let user=null,newsData=[],slides=[],idx=0,timer;
 
-/* ======================= State ======================= */
-let me=null;           // current user
-let news=[];           // news list for banner
-let slides=[];         // slide DOMs
-let idx=0, timer=null; // banner index/interval
-
-/* ======================= Auth ======================= */
+// Auth
 auth.onAuthStateChanged(u=>{
-  me=u;
-  const b=document.getElementById('authBtn');
-  const tag=document.getElementById('postingAs');
-  if(u && !u.isAnonymous){
-    b.innerHTML=`<img src="${u.photoURL||''}"><span>${u.displayName||'Akun Saya'}</span>`;
-    tag.textContent=`Posting sebagai ${u.displayName||'Pengguna'}`;
+  user=u;
+  const btn=document.getElementById("authBtn");
+  if(u&&!u.isAnonymous){
+    btn.innerHTML=`<img src="${u.photoURL||''}"/> ${u.displayName||'User'}`;
   }else{
-    b.innerHTML=`<span class="material-icons">account_circle</span> Masuk`;
-    tag.textContent='';
+    btn.innerHTML='<span class="material-icons">account_circle</span> Masuk';
   }
 });
-document.getElementById('authBtn').onclick=()=>{
-  if(me && !me.isAnonymous){ auth.signOut(); }
-  else{ auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()); }
+document.getElementById("authBtn").onclick=()=>{
+  if(user&&!user.isAnonymous) auth.signOut();
+  else auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
 };
 
-/* ======================= Utils ======================= */
-const fmtTime = d => (d? new Date(d).toLocaleString('id-ID'): '');
-const esc = s => s.replace(/[&<>"]/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
-
-/* ======================= News (RSS) ======================= */
+// News RSS
 async function loadNews(){
-  // single fast source; can add fallback jika perlu
-  const url="https://api.rss2json.com/v1/api.json?rss_url=https://rss.detik.com/index.php/detikcom";
+  const src="https://api.rss2json.com/v1/api.json?rss_url=https://rss.detik.com/index.php/detikcom";
   try{
-    const r=await fetch(url); const j=await r.json();
-    news=(j.items||[]).slice(0,8).map(x=>({
-      id:x.guid || x.link,
-      title:x.title,
-      desc:(x.description||'').replace(/<[^>]+>/g,'').slice(0,140),
-      img:(x.enclosure && x.enclosure.link) || 'https://via.placeholder.com/900x500?text=NEWS',
-      link:x.link
+    const res=await fetch(src),data=await res.json();
+    newsData=(data.items||[]).slice(0,5).map(n=>({
+      id:n.guid,title:n.title,desc:n.description.replace(/<[^>]+>/g,''),img:n.enclosure?.link||"https://via.placeholder.com/600x300",link:n.link
     }));
-  }catch(e){ news=[]; }
+  }catch(e){newsData=[]}
   renderSlides();
 }
 function renderSlides(){
-  const banner=document.getElementById('banner');
-  banner.querySelector('.loading')?.remove();
-  banner.querySelectorAll('.slide').forEach(n=>n.remove());
-  slides=[];
-  if(news.length===0){
-    const empty=document.createElement('div');
-    empty.className='slide active';
-    empty.style.background='#111';
-    empty.innerHTML=`<h2>Tidak ada berita</h2><p>Silakan muat ulang.</p>`;
-    banner.appendChild(empty); slides=[empty]; return;
-  }
-  news.forEach((n,i)=>{
-    const s=document.createElement('div');
-    s.className=`slide ${i===0?'active':''}`;
-    s.style.backgroundImage=`url(${n.img})`;
-    s.innerHTML=`
-      <h2>${esc(n.title)}</h2>
-      <p>${esc(n.desc)}…</p>
-      <div class="btns">
-        <a class="btn white" href="${n.link}" target="_blank" rel="noopener">
-          <span class="material-icons">open_in_new</span> Sumber
-        </a>
-        <button class="btn ghost" onclick="prefillNews('${encodeURIComponent(n.id)}','${encodeURIComponent(n.title)}')">
-          <span class="material-icons">chat_bubble</span> Diskusi
-        </button>
+  const cont=document.getElementById("banner");slides=[];
+  cont.innerHTML="";
+  newsData.forEach((n,i)=>{
+    const d=document.createElement("div");
+    d.className="slide"+(i==0?" active":"");
+    d.style.backgroundImage=`url(${n.img})`;
+    d.innerHTML=`<h2>${n.title}</h2><p>${n.desc.slice(0,100)}...</p>
+      <div class="actions">
+        <a href="${n.link}" target="_blank" class="btn source"><span class="material-icons">open_in_new</span> Sumber</a>
+        <button class="btn react" onclick="startDiscuss('${n.id}','${n.title}')"><span class="material-icons">chat_bubble</span> Diskusi</button>
       </div>`;
-    banner.appendChild(s); slides.push(s);
+    cont.appendChild(d);slides.push(d);
   });
-  idx=0; clearInterval(timer);
-  if(slides.length>1) timer=setInterval(nextSlide,6000);
+  if(slides.length>1) timer=setInterval(nextSlide,5000);
 }
-function nextSlide(){ if(slides.length<2) return; slides[idx].classList.remove('active'); idx=(idx+1)%slides.length; slides[idx].classList.add('active'); }
-document.getElementById('prev').onclick=()=>{ if(slides.length<2) return; clearInterval(timer); slides[idx].classList.remove('active'); idx=(idx-1+slides.length)%slides.length; slides[idx].classList.add('active'); timer=setInterval(nextSlide,6000); };
-document.getElementById('next').onclick=()=>{ if(slides.length<2) return; clearInterval(timer); nextSlide(); timer=setInterval(nextSlide,6000); };
-function prefillNews(idEnc,titleEnc){
-  const title=decodeURIComponent(titleEnc);
-  document.getElementById('input').value=`[Berita: ${title}] `;
-  document.getElementById('input').focus({preventScroll:false});
-  window.scrollTo({top:document.querySelector('.post-form').offsetTop-8,behavior:'smooth'});
-}
+function nextSlide(){slides[idx].classList.remove("active");idx=(idx+1)%slides.length;slides[idx].classList.add("active");}
 
-/* ======================= Discussions ======================= */
-/* Struktur koleksi:
-   - discussions { text, name, photo, uid, likes[], newsTitle?, time }
-   - replies     { discussionId, text, name, photo, uid, time }
-   (Replies di-load lazy per diskusi agar ringan)
-*/
-
+// Diskusi
 async function loadDiscussions(){
-  const list=document.getElementById('list');
-  list.innerHTML='<div class="loading">Memuat diskusi…</div>';
+  const list=document.getElementById("list");
   try{
-    const snap=await db.collection('discussions').orderBy('time','desc').limit(50).get();
-    if(snap.empty){ list.innerHTML='<div class="empty">Belum ada diskusi</div>'; return; }
-    list.innerHTML='';
+    const snap=await db.collection("discussions").orderBy("time","desc").limit(50).get();
+    if(snap.empty){list.innerHTML='<p style="text-align:center;color:#666">Belum ada diskusi</p>';return;}
+    list.innerHTML="";
     snap.forEach(doc=>{
-      const d=doc.data(); const id=doc.id;
-      const liked = (d.likes||[]).includes(me?.uid);
-      const item=document.createElement('div'); item.className='item';
-      const newsBlock = d.newsTitle ? `<div class="news-ref"><strong>Referensi Berita:</strong><br>${esc(d.newsTitle)}</div>` : '';
-      const canDelete = me && me.uid===d.uid;
-      item.innerHTML=`
+      const d=doc.data();
+      const liked=d.likes&&user?d.likes.includes(user.uid):false;
+      const el=document.createElement("div");
+      el.className="discussion";
+      el.innerHTML=`
         <div class="head">
-          <div class="avatar">${d.photo?`<img src="${d.photo}">`:`<span class="material-icons" style="color:#9ca3af">account_circle</span>`}</div>
-          <div class="meta">
-            <div class="name">${esc(d.name||'Pengguna')}</div>
-            <div class="time">${fmtTime(d.time?.toDate?.())}</div>
-          </div>
+          ${d.photo?`<img src="${d.photo}">`:`<span class="material-icons">account_circle</span>`}
+          <div><div class="user">${d.name||'Anonim'}</div>
+          <div class="time">${d.time?.toDate().toLocaleString("id-ID")||''}</div></div>
         </div>
-        <div class="text">${esc(d.text||'')}</div>
-        ${newsBlock}
-        <div class="acts">
-          <button class="link" onclick="toggleLike('${id}', ${liked})">
-            <span class="material-icons">thumb_up</span> <span id="lk-${id}">${(d.likes||[]).length}</span>
-          </button>
-          <button class="link" onclick="toggleReplies('${id}')">
-            <span class="material-icons">chat_bubble</span> Balasan
-          </button>
-          ${canDelete?`<button class="link danger" onclick="deleteDiscussion('${id}')"><span class="material-icons">delete</span> Hapus</button>`:''}
-        </div>
-        <div id="replies-${id}" class="replies" data-loaded="0" style="display:none"></div>
-      `;
-      list.appendChild(item);
+        <div class="text">${d.text}</div>
+        <div class="act">
+          <button onclick="toggleLike('${doc.id}',${liked})" class="btn"><span class="material-icons">thumb_up</span> ${(d.likes||[]).length}</button>
+        </div>`;
+      list.appendChild(el);
     });
-  }catch(e){
-    list.innerHTML='<div class="empty">Gagal memuat diskusi</div>';
-  }
+  }catch(e){list.innerHTML="<p>Gagal memuat diskusi</p>";}
+}
+function postDiscussion(){
+  if(!user||user.isAnonymous){alert("Login dulu");return;}
+  const txt=document.getElementById("input").value.trim();
+  if(!txt)return;
+  db.collection("discussions").add({
+    text:txt,name:user.displayName||"Anonim",photo:user.photoURL||"",
+    uid:user.uid,likes:[],time:firebase.firestore.FieldValue.serverTimestamp()
+  }).then(()=>{document.getElementById("input").value="";loadDiscussions();});
+}
+function toggleLike(id,liked){
+  if(!user)return alert("Login dulu");
+  const ref=db.collection("discussions").doc(id);
+  if(liked) ref.update({likes:firebase.firestore.FieldValue.arrayRemove(user.uid)});
+  else ref.update({likes:firebase.firestore.FieldValue.arrayUnion(user.uid)});
+  setTimeout(loadDiscussions,500);
+}
+function startDiscuss(id,title){
+  document.getElementById("input").value=`[Berita: ${title}] `;
+  window.scrollTo({top:document.querySelector(".form").offsetTop,behavior:"smooth"});
 }
 
-async function postDiscussion(){
-  if(!me){ alert('Silakan login dulu'); return; }
-  const ta=document.getElementById('input'); const text=ta.value.trim();
-  if(!text) return;
-  // deteksi tag [Berita: ...]
-  let newsTitle=null;
-  const m=text.match(/\[Berita:\s*(.+?)\s*\]/);
-  if(m){ newsTitle=m[1]; }
-  await db.collection('discussions').add({
-    text, newsTitle: newsTitle||null,
-    name: me.displayName||'Pengguna', photo: me.photoURL||'',
-    uid: me.uid, likes:[],
-    time: firebase.firestore.FieldValue.serverTimestamp()
-  });
-  ta.value='';
-  loadDiscussions();
-}
+document.getElementById("postBtn").onclick=postDiscussion;
 
-async function toggleLike(discId, liked){
-  if(!me){ alert('Silakan login dulu'); return; }
-  const ref=db.collection('discussions').doc(discId);
-  if(liked){
-    await ref.update({likes: firebase.firestore.FieldValue.arrayRemove(me.uid)});
-  }else{
-    await ref.update({likes: firebase.firestore.FieldValue.arrayUnion(me.uid)});
-  }
-  // update cepat di UI
-  const doc=await ref.get(); const c=(doc.data().likes||[]).length; const el=document.getElementById('lk-'+discId); if(el) el.textContent=c;
-}
-
-async function deleteDiscussion(id){
-  if(!me) return;
-  if(!confirm('Hapus diskusi ini beserta semua balasan?')) return;
-  const ref=db.collection('discussions').doc(id);
-  try{
-    // hapus semua replies yang terkait (batch sederhana)
-    const rs=await db.collection('replies').where('discussionId','==',id).get();
-    const batch=db.batch();
-    rs.forEach(d=>batch.delete(db.collection('replies').doc(d.id)));
-    batch.delete(ref);
-    await batch.commit();
-    loadDiscussions();
-  }catch(e){ alert('Gagal menghapus'); }
-}
-
-/* ======================= Replies (lazy) ======================= */
-async function toggleReplies(discId){
-  const box=document.getElementById('replies-'+discId);
-  if(box.style.display==='none'){ // open
-    box.style.display='block';
-    if(box.getAttribute('data-loaded')==='0'){
-      await loadReplies(discId);
-      box.setAttribute('data-loaded','1');
-    }
-  }else{
-    box.style.display='none';
-  }
-}
-
-async function loadReplies(discId){
-  const box=document.getElementById('replies-'+discId);
-  box.innerHTML='<div class="loading">Memuat balasan…</div>';
-  try{
-    const snap=await db.collection('replies')
-      .where('discussionId','==',discId)
-      .orderBy('time','asc')
-      .limit(100).get();
-    if(snap.empty){
-      box.innerHTML='';
-    }else{
-      box.innerHTML='';
-      snap.forEach(doc=>{
-        const r=doc.data(); const canDel=me && me.uid===r.uid;
-        const el=document.createElement('div');
-        el.className='r-item';
-        el.innerHTML=`
-          <div class="head">
-            <div class="avatar" style="width:28px;height:28px">${r.photo?`<img src="${r.photo}">`:`<span class="material-icons" style="font-size:22px;color:#9ca3af">account_circle</span>`}</div>
-            <div class="meta">
-              <div class="name" style="font-size:13px">${esc(r.name||'Pengguna')}</div>
-              <div class="time">${fmtTime(r.time?.toDate?.())}</div>
-            </div>
-          </div>
-          <div class="text" style="font-size:14px">${esc(r.text||'')}</div>
-          ${canDel?`<button class="link danger" style="margin-top:6px" onclick="deleteReply('${doc.id}','${discId}')"><span class="material-icons">delete</span> Hapus</button>`:''}
-        `;
-        box.appendChild(el);
-      });
-    }
-    // form reply
-    const f=document.createElement('div');
-    f.className='reply-form';
-    f.innerHTML=`
-      <textarea id="rf-${discId}" placeholder="Tulis balasan…"></textarea>
-      <button class="btn" onclick="sendReply('${discId}')">Kirim</button>
-    `;
-    box.appendChild(f);
-  }catch(e){
-    box.innerHTML='<div class="loading">Gagal memuat balasan</div>';
-  }
-}
-
-async function sendReply(discId){
-  if(!me){ alert('Silakan login dulu'); return; }
-  const ta=document.getElementById('rf-'+discId);
-  const text=ta.value.trim(); if(!text) return;
-  await db.collection('replies').add({
-    discussionId: discId,
-    text, name: me.displayName||'Pengguna', photo: me.photoURL||'',
-    uid: me.uid,
-    time: firebase.firestore.FieldValue.serverTimestamp()
-  });
-  ta.value='';
-  // refresh replies ringan: append terakhir saja dengan reload kecil
-  loadReplies(discId);
-}
-
-async function deleteReply(replyId, discId){
-  if(!me) return;
-  if(!confirm('Hapus balasan ini?')) return;
-  try{
-    await db.collection('replies').doc(replyId).delete();
-    loadReplies(discId);
-  }catch(e){ alert('Gagal menghapus'); }
-}
-
-/* ======================= Bindings & Init ======================= */
-document.getElementById('postBtn').onclick=postDiscussion;
-document.getElementById('input').addEventListener('keydown',e=>{
-  if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); postDiscussion(); }
-});
-
-loadNews();
-loadDiscussions();
+// Init
+loadNews();loadDiscussions();
 </script>
 </body>
 </html>
