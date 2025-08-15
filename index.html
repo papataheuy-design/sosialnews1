@@ -1,167 +1,429 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1.0">
-  <title>NEWSHUB Diskusi</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>NEWSHUB — Portal Diskusi Berita & Lokal</title>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <style>
-    body{margin:0;font-family:Poppins,sans-serif;background:#f5f7fa;color:#222}
-    header{display:flex;justify-content:space-between;align-items:center;padding:10px 20px;background:#4361ee;color:#fff;position:sticky;top:0;z-index:10}
-    .logo{font-weight:600;font-size:18px}
-    #authBtn{background:#fff2;border:none;padding:6px 12px;border-radius:20px;color:#fff;cursor:pointer;display:flex;align-items:center;gap:8px}
-    #authBtn img{width:28px;height:28px;border-radius:50%}
-    .banner{height:280px;position:relative;overflow:hidden}
-    .slide{position:absolute;width:100%;height:100%;opacity:0;transition:opacity 1s;background-size:cover;background-position:center;display:flex;flex-direction:column;justify-content:flex-end;padding:20px;color:#fff;background-color:rgba(0,0,0,.4);background-blend-mode:darken}
+    :root{--primary:#4361ee;--primary-dark:#3a0ca3;--accent:#f72585;--bg:#f5f7fa;--card:#fff;--text:#212529;--muted:#6c757d}
+    *{box-sizing:border-box} body{margin:0;font-family:Poppins,sans-serif;background:var(--bg);color:var(--text)}
+    /* Header */
+    .app-header{position:sticky;top:0;z-index:20;display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:var(--primary);color:#fff;box-shadow:0 2px 10px rgba(0,0,0,.08)}
+    .brand{font-weight:700}
+    #authBtn{display:flex;gap:8px;align-items:center;border:none;border-radius:20px;background:#ffffff22;color:#fff;padding:6px 12px;cursor:pointer}
+    #authBtn img{width:28px;height:28px;border-radius:50%;object-fit:cover}
+    /* Layout */
+    .wrap{max-width:1100px;margin:16px auto;padding:0 12px}
+    /* Banner */
+    .banner{height:360px;position:relative;border-radius:12px;overflow:hidden;background:#e5e7eb}
+    .slide{position:absolute;inset:0;opacity:0;transition:opacity .7s;background-size:cover;background-position:center;display:flex;flex-direction:column;justify-content:flex-end;padding:18px;color:#fff;background-color:rgba(0,0,0,.35);background-blend-mode:darken}
     .slide.active{opacity:1}
-    .slide h2{margin:0 0 8px;font-size:20px}
+    .slide h2{margin:0 0 6px;font-size:20px}
     .slide p{margin:0 0 10px;font-size:14px}
-    .actions{display:flex;gap:10px}
-    .btn{display:flex;align-items:center;gap:5px;padding:4px 10px;border:none;border-radius:16px;cursor:pointer;font-size:13px}
-    .btn.source{background:#fff2;color:#fff}
-    .btn.react{background:#fff2;color:#fff}
-    .forum{max-width:700px;margin:20px auto;padding:0 15px}
-    .form{background:#fff;padding:15px;border-radius:8px;margin-bottom:20px;box-shadow:0 1px 4px rgba(0,0,0,.1)}
-    textarea{width:100%;padding:10px;border:1px solid #ccc;border-radius:6px;font-family:inherit;margin-bottom:10px}
-    .discussion{background:#fff;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.1);margin-bottom:15px;padding:15px}
-    .discussion .head{display:flex;align-items:center;gap:10px;margin-bottom:8px}
-    .discussion .head img{width:32px;height:32px;border-radius:50%}
-    .discussion .user{font-weight:600;font-size:14px}
-    .discussion .time{font-size:12px;color:#666}
-    .discussion .text{margin:8px 0}
-    .discussion .act{display:flex;gap:15px;font-size:13px;align-items:center}
-    .loading{text-align:center;padding:20px;color:#666}
-    @media(max-width:500px){.slide h2{font-size:16px}}
+    .slide .btns{display:flex;gap:10px;flex-wrap:wrap}
+    .btn{display:inline-flex;gap:6px;align-items:center;border:none;border-radius:16px;padding:6px 12px;cursor:pointer;font-size:13px}
+    .btn.white{background:#ffffffdd;color:#111}
+    .btn.ghost{background:#ffffff33;color:#fff}
+    .nav{position:absolute;inset:0;display:flex;justify-content:space-between;align-items:center;padding:0 8px;pointer-events:none}
+    .nav button{pointer-events:auto;border:none;border-radius:50%;width:36px;height:36px;display:grid;place-items:center;background:#00000033;color:#fff;cursor:pointer}
+    /* Tabs */
+    .tabs{display:flex;gap:8px;margin-top:16px}
+    .tab{border:none;background:#e9ecef;color:#111;padding:8px 12px;border-radius:10px;cursor:pointer}
+    .tab.active{background:var(--primary);color:#fff}
+    /* Form */
+    .card{background:var(--card);border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+    .post-form{padding:12px}
+    textarea{width:100%;border:1px solid #e5e7eb;border-radius:10px;padding:10px;resize:vertical;min-height:70px;font-family:inherit}
+    .row{display:flex;gap:8px;margin-top:8px;align-items:center}
+    .row .btn{background:var(--primary);color:#fff}
+    .row .btn:hover{background:var(--primary-dark)}
+    .row .fill{flex:1}
+    select{border:1px solid #e5e7eb;border-radius:10px;padding:8px;background:#fff}
+    /* List */
+    h3{margin:16px 4px}
+    #list .empty,#list .loading{text-align:center;color:var(--muted);padding:16px}
+    .item{padding:14px}
+    .item+.item{border-top:1px solid #f0f0f0}
+    .head{display:flex;gap:10px;align-items:center}
+    .avatar{width:34px;height:34px;border-radius:50%;background:#e5e7eb;overflow:hidden;display:grid;place-items:center}
+    .avatar img{width:100%;height:100%;object-fit:cover}
+    .meta{line-height:1.2}
+    .name{font-weight:600;font-size:14px}
+    .time{font-size:12px;color:var(--muted)}
+    .text{margin:8px 0;white-space:pre-wrap}
+    .acts{display:flex;gap:10px;align-items:center;margin-top:6px;flex-wrap:wrap}
+    .link{display:inline-flex;gap:6px;align-items:center;font-size:13px;color:#374151;background:#f3f4f6;border:none;border-radius:14px;padding:4px 10px;cursor:pointer}
+    .danger{background:#fee2e2;color:#991b1b}
+    .news-ref{margin-top:8px;padding:10px;border-left:3px solid var(--primary);background:#f8fafc;border-radius:8px}
+    .replies{margin-top:10px;padding-left:12px;border-left:2px solid #eee}
+    .r-item{margin-top:10px}
+    .r-item .head{gap:8px}
+    .reply-form{margin-top:10px;display:flex;gap:8px}
+    .reply-form textarea{min-height:50px}
+    .load-more{display:block;width:100%;border:none;background:#eef2ff;color:#1e3a8a;padding:10px;border-radius:10px;margin:8px 0;cursor:pointer}
+    @media (max-width:640px){.banner{height:260px}}
   </style>
 </head>
 <body>
-<header>
-  <div class="logo">NEWSHUB</div>
-  <button id="authBtn"><span class="material-icons">account_circle</span> Masuk</button>
-</header>
+  <header class="app-header">
+    <div class="brand">NEWSHUB — Portal Diskusi</div>
+    <button id="authBtn"><span class="material-icons">account_circle</span> Masuk</button>
+  </header>
 
-<!-- Banner Berita -->
-<div class="banner" id="banner"><div class="loading">Memuat berita...</div></div>
+  <div class="wrap">
+    <!-- Banner Berita -->
+    <div class="banner card" id="banner">
+      <div class="loading" style="position:absolute;inset:0;display:grid;place-items:center;color:#fff;background:#1118">Memuat berita…</div>
+      <div class="nav"><button id="prev">❮</button><button id="next">❯</button></div>
+    </div>
 
-<!-- Forum Diskusi -->
-<div class="forum">
-  <div class="form">
-    <textarea id="input" rows="3" placeholder="Apa pendapatmu?"></textarea>
-    <button id="postBtn">Posting</button>
+    <!-- Tabs kategori -->
+    <div class="tabs">
+      <button class="tab active" id="tab-all">Semua</button>
+      <button class="tab" id="tab-news">Diskusi Berita</button>
+      <button class="tab" id="tab-local">Diskusi Lokal</button>
+    </div>
+
+    <!-- Form Posting -->
+    <div class="card post-form" style="margin-top:10px">
+      <div class="row">
+        <select id="postType" title="Jenis diskusi">
+          <option value="news">Diskusi Berita</option>
+          <option value="local">Diskusi Lokal</option>
+        </select>
+        <div class="fill"></div>
+        <small id="postingAs" style="color:var(--muted)"></small>
+      </div>
+      <textarea id="input" placeholder="Tulis pendapatmu. Untuk diskusi berita, klik tombol 'Diskusi' pada slide agar judul otomatis terisi…"></textarea>
+      <div class="row">
+        <button id="postBtn" class="btn">Posting</button>
+        <button id="refreshBtn" class="btn" style="background:#10b981">Refresh</button>
+      </div>
+    </div>
+
+    <!-- Daftar Diskusi -->
+    <h3 id="listTitle">Diskusi Terbaru</h3>
+    <div id="list" class="card">
+      <div class="loading">Memuat diskusi…</div>
+    </div>
+    <button id="moreBtn" class="load-more" style="display:none">Muat lebih banyak</button>
   </div>
-  <h3>Diskusi Terbaru</h3>
-  <div id="list"><div class="loading">Memuat diskusi...</div></div>
-</div>
 
-<!-- Firebase -->
-<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
-<script>
-const firebaseConfig={apiKey:"AIzaSyAN825UwYIJ6zGgOpb8fYWZBeBfOSvNNU4",
-authDomain:"socialnewshariini.firebaseapp.com",projectId:"socialnewshariini",
-storageBucket:"socialnewshariini.appspot.com",messagingSenderId:"579951188459",
-appId:"1:579951188459:web:83322616a6bfd971eea1ae"};
-firebase.initializeApp(firebaseConfig);
-const auth=firebase.auth(),db=firebase.firestore();
-let user=null,newsData=[],slides=[],idx=0,timer;
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
 
-// Auth
-auth.onAuthStateChanged(u=>{
-  user=u;
-  const btn=document.getElementById("authBtn");
-  if(u&&!u.isAnonymous){
-    btn.innerHTML=`<img src="${u.photoURL||''}"/> ${u.displayName||'User'}`;
-  }else{
-    btn.innerHTML='<span class="material-icons">account_circle</span> Masuk';
-  }
-});
-document.getElementById("authBtn").onclick=()=>{
-  if(user&&!user.isAnonymous) auth.signOut();
-  else auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
-};
+  <script>
+    /* ======================= Firebase Setup ======================= */
+    const firebaseConfig = {
+      apiKey:"AIzaSyAN825UwYIJ6zGgOpb8fYWZBeBfOSvNNU4",
+      authDomain:"socialnewshariini.firebaseapp.com",
+      projectId:"socialnewshariini",
+      storageBucket:"socialnewshariini.appspot.com",
+      messagingSenderId:"579951188459",
+      appId:"1:579951188459:web:83322616a6bfd971eea1ae"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth=firebase.auth(), db=firebase.firestore();
 
-// News RSS
-async function loadNews(){
-  const src="https://api.rss2json.com/v1/api.json?rss_url=https://rss.detik.com/index.php/detikcom";
-  try{
-    const res=await fetch(src),data=await res.json();
-    newsData=(data.items||[]).slice(0,5).map(n=>({
-      id:n.guid,title:n.title,desc:n.description.replace(/<[^>]+>/g,''),img:n.enclosure?.link||"https://via.placeholder.com/600x300",link:n.link
-    }));
-  }catch(e){newsData=[]}
-  renderSlides();
-}
-function renderSlides(){
-  const cont=document.getElementById("banner");slides=[];
-  cont.innerHTML="";
-  newsData.forEach((n,i)=>{
-    const d=document.createElement("div");
-    d.className="slide"+(i==0?" active":"");
-    d.style.backgroundImage=`url(${n.img})`;
-    d.innerHTML=`<h2>${n.title}</h2><p>${n.desc.slice(0,100)}...</p>
-      <div class="actions">
-        <a href="${n.link}" target="_blank" class="btn source"><span class="material-icons">open_in_new</span> Sumber</a>
-        <button class="btn react" onclick="startDiscuss('${n.id}','${n.title}')"><span class="material-icons">chat_bubble</span> Diskusi</button>
-      </div>`;
-    cont.appendChild(d);slides.push(d);
-  });
-  if(slides.length>1) timer=setInterval(nextSlide,5000);
-}
-function nextSlide(){slides[idx].classList.remove("active");idx=(idx+1)%slides.length;slides[idx].classList.add("active");}
+    /* ======================= State ======================= */
+    let me=null;
+    let news=[]; let slides=[]; let idx=0; let timer=null;
+    let currentFilter='all';     // 'all' | 'news' | 'local'
+    let pageCursor=null;         // for pagination
+    const pageSize=30;
 
-// Diskusi
-async function loadDiscussions(){
-  const list=document.getElementById("list");
-  try{
-    const snap=await db.collection("discussions").orderBy("time","desc").limit(50).get();
-    if(snap.empty){list.innerHTML='<p style="text-align:center;color:#666">Belum ada diskusi</p>';return;}
-    list.innerHTML="";
-    snap.forEach(doc=>{
-      const d=doc.data();
-      const liked=d.likes&&user?d.likes.includes(user.uid):false;
-      const el=document.createElement("div");
-      el.className="discussion";
-      el.innerHTML=`
-        <div class="head">
-          ${d.photo?`<img src="${d.photo}">`:`<span class="material-icons">account_circle</span>`}
-          <div><div class="user">${d.name||'Anonim'}</div>
-          <div class="time">${d.time?.toDate().toLocaleString("id-ID")||''}</div></div>
-        </div>
-        <div class="text">${d.text}</div>
-        <div class="act">
-          <button onclick="toggleLike('${doc.id}',${liked})" class="btn"><span class="material-icons">thumb_up</span> ${(d.likes||[]).length}</button>
-        </div>`;
-      list.appendChild(el);
+    /* ======================= Auth ======================= */
+    auth.onAuthStateChanged(u=>{
+      me=u;
+      const b=document.getElementById('authBtn');
+      const tag=document.getElementById('postingAs');
+      if(u && !u.isAnonymous){
+        b.innerHTML=\`<img src="\${u.photoURL||''}"><span>\${u.displayName||'Akun Saya'}</span>\`;
+        tag.textContent=\`Posting sebagai \${u.displayName||'Pengguna'}\`;
+      }else{
+        b.innerHTML=\`<span class="material-icons">account_circle</span> Masuk\`;
+        tag.textContent='';
+      }
     });
-  }catch(e){list.innerHTML="<p>Gagal memuat diskusi</p>";}
-}
-function postDiscussion(){
-  if(!user||user.isAnonymous){alert("Login dulu");return;}
-  const txt=document.getElementById("input").value.trim();
-  if(!txt)return;
-  db.collection("discussions").add({
-    text:txt,name:user.displayName||"Anonim",photo:user.photoURL||"",
-    uid:user.uid,likes:[],time:firebase.firestore.FieldValue.serverTimestamp()
-  }).then(()=>{document.getElementById("input").value="";loadDiscussions();});
-}
-function toggleLike(id,liked){
-  if(!user)return alert("Login dulu");
-  const ref=db.collection("discussions").doc(id);
-  if(liked) ref.update({likes:firebase.firestore.FieldValue.arrayRemove(user.uid)});
-  else ref.update({likes:firebase.firestore.FieldValue.arrayUnion(user.uid)});
-  setTimeout(loadDiscussions,500);
-}
-function startDiscuss(id,title){
-  document.getElementById("input").value=`[Berita: ${title}] `;
-  window.scrollTo({top:document.querySelector(".form").offsetTop,behavior:"smooth"});
-}
+    document.getElementById('authBtn').onclick=()=>{
+      if(me && !me.isAnonymous){ auth.signOut(); }
+      else{ auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()); }
+    };
 
-document.getElementById("postBtn").onclick=postDiscussion;
+    /* ======================= Utils ======================= */
+    const fmtTime = d => (d? new Date(d).toLocaleString('id-ID'): '');
+    const esc = s => (s||'').replace(/[&<>"]/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
+    const clean = t => (t||'').replace(/<[^>]+>/g,'').replace(/\s+/g,' ').trim();
 
-// Init
-loadNews();loadDiscussions();
-</script>
+    /* ======================= News (Progressive) ======================= */
+    const sources = [
+      {name:'Detik',  rss:'https://rss.detik.com/index.php/detikcom'},
+      {name:'Kompas', rss:'https://rss.kompas.com/kompas-news.xml'},
+      {name:'CNN ID', rss:'https://www.cnnindonesia.com/rss'},
+      {name:'Tribun', rss:'https://www.tribunnews.com/rss'}
+    ];
+    async function fetchRss(rss){
+      const url=\`https://api.rss2json.com/v1/api.json?rss_url=\${encodeURIComponent(rss)}\`;
+      const r=await fetch(url); const j=await r.json();
+      return (j.items||[]).map(x=>({
+        id: x.guid || x.link || Math.random().toString(36).slice(2),
+        title: x.title || 'Judul tidak tersedia',
+        desc: clean(x.description||x.content||'').slice(0,160),
+        img: (x.enclosure && x.enclosure.link) || (clean(x.description||'').match(/https?:\/\/\S+\.(jpg|png|jpeg|webp)/i)||[,''])[0] || 'https://via.placeholder.com/1200x700?text=NEWSHUB',
+        link: x.link || '#',
+        source: j.feed?.title || ''
+      }));
+    }
+    async function loadNews(){
+      // render cepat: ambil Detik dulu
+      try{
+        const detik=await fetchRss(sources[0].rss);
+        news=[...dedupeByTitle(detik)].slice(0,8);
+        renderSlides();
+      }catch(e){ /* ignore */ renderSlides(true); }
+      // paralel: sumber lain → tambah sampai 15 item unik
+      Promise.allSettled(sources.slice(1).map(s=>fetchRss(s.rss))).then(res=>{
+        const more=res.flatMap(x=>x.status==='fulfilled'? x.value:[]);
+        const merged=dedupeByTitle([...news,...more]).slice(0,15);
+        news=merged; renderSlides();
+      });
+    }
+    function dedupeByTitle(arr){
+      const seen=new Set(); const out=[];
+      arr.forEach(n=>{ const key=(n.title||'').toLowerCase(); if(!seen.has(key)){seen.add(key); out.push(n);} });
+      return out.sort(()=>0.5-Math.random()); // kecilkan kemiripan, acak sedikit
+    }
+    function renderSlides(emptyOnly){
+      const banner=document.getElementById('banner');
+      banner.querySelector('.loading')?.remove();
+      banner.querySelectorAll('.slide').forEach(n=>n.remove());
+      slides=[];
+      if(emptyOnly || news.length===0){
+        const s=document.createElement('div'); s.className='slide active'; s.style.background='#111';
+        s.innerHTML='<h2>Tidak ada berita</h2><p>Silakan muat ulang.</p>';
+        banner.appendChild(s); slides=[s]; return;
+      }
+      news.forEach((n,i)=>{
+        const s=document.createElement('div');
+        s.className=\`slide \${i===0?'active':''}\`;
+        s.style.backgroundImage=\`url(\${n.img})\`;
+        s.innerHTML=\`
+          <h2>\${esc(n.title)}</h2>
+          <p>\${esc(n.desc)}…</p>
+          <div class="btns">
+            <a class="btn white" href="\${n.link}" target="_blank" rel="noopener">
+              <span class="material-icons">open_in_new</span> Sumber
+            </a>
+            <button class="btn ghost" onclick="prefillNews('\${encodeURIComponent(n.title)}')">
+              <span class="material-icons">chat_bubble</span> Diskusi
+            </button>
+            <button class="btn ghost" data-news-id="\${n.id}" onclick="likeNews('\${n.id}', this)">
+              <span class="material-icons">thumb_up</span> Suka <span class="news-like" style="margin-left:4px">0</span>
+            </button>
+          </div>\`;
+        banner.appendChild(s); slides.push(s);
+        // muat jumlah like ringan (per slide satu query)
+        updateNewsLikeCount(n.id, s.querySelector('.news-like'));
+      });
+      idx=0; clearInterval(timer); if(slides.length>1) timer=setInterval(nextSlide,7000);
+    }
+    function nextSlide(){ if(slides.length<2) return; slides[idx].classList.remove('active'); idx=(idx+1)%slides.length; slides[idx].classList.add('active'); }
+    document.getElementById('prev').onclick=()=>{ if(slides.length<2) return; clearInterval(timer); slides[idx].classList.remove('active'); idx=(idx-1+slides.length)%slides.length; slides[idx].classList.add('active'); timer=setInterval(nextSlide,7000); };
+    document.getElementById('next').onclick=()=>{ if(slides.length<2) return; clearInterval(timer); nextSlide(); timer=setInterval(nextSlide,7000); };
+    function prefillNews(titleEnc){
+      const title=decodeURIComponent(titleEnc);
+      document.getElementById('postType').value='news';
+      document.getElementById('input').value=\`[Berita: \${title}] \`;
+      document.getElementById('input').focus();
+      window.scrollTo({top:document.querySelector('.post-form').offsetTop-8,behavior:'smooth'});
+    }
+    async function likeNews(newsId, btn){
+      if(!me){ alert('Silakan login dulu'); return; }
+      const lkRef=db.collection('newsLikes').doc(\`\${newsId}_\${me.uid}\`);
+      const doc=await lkRef.get();
+      if(doc.exists){ await lkRef.delete(); }
+      else{ await lkRef.set({newsId,userId:me.uid,time:firebase.firestore.FieldValue.serverTimestamp()}); }
+      updateNewsLikeCount(newsId, btn.querySelector('.news-like'));
+    }
+    async function updateNewsLikeCount(newsId, span){
+      try{
+        const snap=await db.collection('newsLikes').where('newsId','==',newsId).get();
+        if(span) span.textContent=snap.size;
+      }catch(e){ if(span) span.textContent='0'; }
+    }
+
+    /* ======================= Tabs & Filter ======================= */
+    const tabAll=document.getElementById('tab-all');
+    const tabNews=document.getElementById('tab-news');
+    const tabLocal=document.getElementById('tab-local');
+    function setTab(t){
+      currentFilter=t;
+      [tabAll,tabNews,tabLocal].forEach(el=>el.classList.remove('active'));
+      ({all:tabAll,news:tabNews,local:tabLocal}[t]).classList.add('active');
+      document.getElementById('listTitle').textContent=
+        t==='all'?'Diskusi Terbaru':(t==='news'?'Diskusi Berita':'Diskusi Lokal');
+      pageCursor=null; loadDiscussions(true);
+    }
+    tabAll.onclick=()=>setTab('all');
+    tabNews.onclick=()=>setTab('news');
+    tabLocal.onclick=()=>setTab('local');
+
+    /* ======================= Discussions ======================= */
+    // Struktur: discussions { text, type:'news'|'local', newsTitle?, name, photo, uid, likes[], time }
+    //           replies     { discussionId, text, name, photo, uid, time }
+    async function loadDiscussions(reset){
+      const list=document.getElementById('list'); const more=document.getElementById('moreBtn');
+      if(reset){ list.innerHTML='<div class="loading">Memuat diskusi…</div>'; more.style.display='none'; }
+      try{
+        let q=db.collection('discussions').orderBy('time','desc');
+        if(currentFilter!=='all'){ q=q.where('type','==',currentFilter); }
+        if(pageCursor){ q=q.startAfter(pageCursor); }
+        q=q.limit(pageSize);
+        const snap=await q.get();
+        if(reset){ list.innerHTML=''; }
+        if(snap.empty && reset){ list.innerHTML='<div class="empty">Belum ada diskusi</div>'; return; }
+        const docs=snap.docs;
+        docs.forEach(d=>{
+          const v=d.data(), id=d.id;
+          const liked=(v.likes||[]).includes(me?.uid);
+          const canDelete=me && me.uid===v.uid;
+          const it=document.createElement('div'); it.className='item';
+          const newsBlock = v.newsTitle ? \`<div class="news-ref"><strong>Referensi Berita:</strong><br>\${esc(v.newsTitle)}</div>\` : '';
+          it.innerHTML=\`
+            <div class="head">
+              <div class="avatar">\${v.photo? \`<img src="\${v.photo}">\`:'<span class="material-icons" style="color:#9ca3af">account_circle</span>'}</div>
+              <div class="meta">
+                <div class="name">\${esc(v.name||'Pengguna')}</div>
+                <div class="time">\${fmtTime(v.time?.toDate?.())}</div>
+              </div>
+            </div>
+            <div class="text">\${esc(v.text||'')}</div>
+            \${newsBlock}
+            <div class="acts">
+              <button class="link" onclick="toggleLike('\${id}', \${liked})"><span class="material-icons">thumb_up</span> <span id="lk-\${id}">\${(v.likes||[]).length}</span></button>
+              <button class="link" onclick="toggleReplies('\${id}')"><span class="material-icons">chat_bubble</span> Balasan</button>
+              \${canDelete?'<button class="link danger" onclick="deleteDiscussion(\\'\'+id+'\\')"><span class="material-icons">delete</span> Hapus</button>':''}
+            </div>
+            <div id="replies-\${id}" class="replies" data-loaded="0" style="display:none"></div>\`;
+          list.appendChild(it);
+        });
+        if(docs.length===pageSize){
+          pageCursor=docs[docs.length-1];
+          more.style.display='block';
+        }else{
+          pageCursor=null; more.style.display='none';
+        }
+      }catch(e){
+        if(reset) document.getElementById('list').innerHTML='<div class="empty">Gagal memuat diskusi</div>';
+      }
+    }
+    async function postDiscussion(){
+      if(!me){ alert('Silakan login dulu'); return; }
+      const ta=document.getElementById('input'); const type=document.getElementById('postType').value;
+      const text=ta.value.trim(); if(!text) return;
+      // cari [Berita: ...]
+      let newsTitle=null; const m=text.match(/\[Berita:\s*(.+?)\s*\]/);
+      if(m){ newsTitle=m[1]; }
+      await db.collection('discussions').add({
+        text, type, newsTitle: type==='news'? (newsTitle||null): null,
+        name: me.displayName||'Pengguna', photo: me.photoURL||'', uid: me.uid,
+        likes:[], time: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      ta.value=''; pageCursor=null; loadDiscussions(true);
+    }
+    async function toggleLike(discId, liked){
+      if(!me){ alert('Silakan login dulu'); return; }
+      const ref=db.collection('discussions').doc(discId);
+      if(liked){ await ref.update({likes: firebase.firestore.FieldValue.arrayRemove(me.uid)}); }
+      else{ await ref.update({likes: firebase.firestore.FieldValue.arrayUnion(me.uid)}); }
+      const doc=await ref.get(); const c=(doc.data().likes||[]).length;
+      const el=document.getElementById('lk-'+discId); if(el) el.textContent=c;
+    }
+    async function deleteDiscussion(id){
+      if(!me) return;
+      if(!confirm('Hapus diskusi ini beserta semua balasan?')) return;
+      const ref=db.collection('discussions').doc(id);
+      try{
+        const rs=await db.collection('replies').where('discussionId','==',id).get();
+        const batch=db.batch(); rs.forEach(d=>batch.delete(db.collection('replies').doc(d.id))); batch.delete(ref);
+        await batch.commit(); pageCursor=null; loadDiscussions(true);
+      }catch(e){ alert('Gagal menghapus'); }
+    }
+
+    /* ======================= Replies (lazy) ======================= */
+    async function toggleReplies(discId){
+      const box=document.getElementById('replies-'+discId);
+      if(box.style.display==='none'){ box.style.display='block';
+        if(box.getAttribute('data-loaded')==='0'){ await loadReplies(discId); box.setAttribute('data-loaded','1'); }
+      }else{ box.style.display='none'; }
+    }
+    async function loadReplies(discId){
+      const box=document.getElementById('replies-'+discId);
+      box.innerHTML='<div class="loading">Memuat balasan…</div>';
+      try{
+        const snap=await db.collection('replies').where('discussionId','==',discId).orderBy('time','asc').limit(200).get();
+        box.innerHTML='';
+        if(snap.empty){ /* no replies */ }
+        snap.forEach(doc=>{
+          const r=doc.data(); const canDel=me && me.uid===r.uid;
+          const el=document.createElement('div'); el.className='r-item';
+          el.innerHTML=\`
+            <div class="head">
+              <div class="avatar" style="width:28px;height:28px">\${r.photo? \`<img src="\${r.photo}">\`:'<span class="material-icons" style="font-size:22px;color:#9ca3af">account_circle</span>'}</div>
+              <div class="meta">
+                <div class="name" style="font-size:13px">\${esc(r.name||'Pengguna')}</div>
+                <div class="time">\${fmtTime(r.time?.toDate?.())}</div>
+              </div>
+            </div>
+            <div class="text" style="font-size:14px">\${esc(r.text||'')}</div>
+            \${canDel? \`<button class="link danger" style="margin-top:6px" onclick="deleteReply('\${doc.id}','\${discId}')"><span class="material-icons">delete</span> Hapus</button>\` : ''}\`;
+          box.appendChild(el);
+        });
+        const f=document.createElement('div'); f.className='reply-form';
+        f.innerHTML=\`<textarea id="rf-\${discId}" placeholder="Tulis balasan…"></textarea><button class="btn" onclick="sendReply('\${discId}')">Kirim</button>\`;
+        box.appendChild(f);
+      }catch(e){ box.innerHTML='<div class="loading">Gagal memuat balasan</div>'; }
+    }
+    async function sendReply(discId){
+      if(!me){ alert('Silakan login dulu'); return; }
+      const ta=document.getElementById('rf-'+discId); const text=ta.value.trim(); if(!text) return;
+      await db.collection('replies').add({
+        discussionId: discId, text,
+        name: me.displayName||'Pengguna', photo: me.photoURL||'', uid: me.uid,
+        time: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      ta.value=''; loadReplies(discId);
+    }
+    async function deleteReply(replyId, discId){
+      if(!me) return;
+      if(!confirm('Hapus balasan ini?')) return;
+      try{ await db.collection('replies').doc(replyId).delete(); loadReplies(discId); }
+      catch(e){ alert('Gagal menghapus'); }
+    }
+
+    /* ======================= Bindings & Init ======================= */
+    document.getElementById('postBtn').onclick=postDiscussion;
+    document.getElementById('refreshBtn').onclick=()=>{ pageCursor=null; loadDiscussions(true); };
+    document.getElementById('input').addEventListener('keydown',e=>{
+      if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); postDiscussion(); }
+    });
+    document.getElementById('moreBtn').onclick=()=>loadDiscussions(false);
+
+    // start
+    loadNews();
+    setTab('all'); // ini memanggil loadDiscussions(true)
+    // expose fungsi yang dipakai inline
+    window.prefillNews=prefillNews;
+    window.likeNews=likeNews;
+    window.toggleLike=toggleLike;
+    window.toggleReplies=toggleReplies;
+    window.deleteDiscussion=deleteDiscussion;
+    window.deleteReply=deleteReply;
+    window.sendReply=sendReply;
+  </script>
 </body>
 </html>
