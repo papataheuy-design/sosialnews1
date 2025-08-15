@@ -23,6 +23,7 @@
     .slide h2{margin:0 0 6px;font-size:20px}
     .slide p{margin:0 0 10px;font-size:14px}
     .slide .btns{display:flex;gap:10px;flex-wrap:wrap}
+    .slide .source-badge{position:absolute;top:10px;right:10px;background:var(--primary-dark);padding:4px 8px;border-radius:4px;font-size:12px}
     .btn{display:inline-flex;gap:6px;align-items:center;border:none;border-radius:16px;padding:6px 12px;cursor:pointer;font-size:13px}
     .btn.white{background:#ffffffdd;color:#111}
     .btn.ghost{background:#ffffff33;color:#fff}
@@ -131,7 +132,9 @@
 
     /* ======================= State ======================= */
     let me=null;
-    let news=[]; let slides=[]; let idx=0; let timer=null;
+    let newsSources = {}; // Menyimpan berita per sumber
+    let currentSourceIndex = 0; // Indeks sumber berita saat ini
+    let slides=[]; let idx=0; let timer=null;
     let currentFilter='all';     // 'all' | 'news' | 'local'
     let pageCursor=null;         // for pagination
     const pageSize=30;
@@ -142,10 +145,10 @@
       const b=document.getElementById('authBtn');
       const tag=document.getElementById('postingAs');
       if(u && !u.isAnonymous){
-        b.innerHTML=\`<img src="\${u.photoURL||''}"><span>\${u.displayName||'Akun Saya'}</span>\`;
-        tag.textContent=\`Posting sebagai \${u.displayName||'Pengguna'}\`;
+        b.innerHTML=`<img src="${u.photoURL||''}"><span>${u.displayName||'Akun Saya'}</span>`;
+        tag.textContent=`Posting sebagai ${u.displayName||'Pengguna'}`;
       }else{
-        b.innerHTML=\`<span class="material-icons">account_circle</span> Masuk\`;
+        b.innerHTML=`<span class="material-icons">account_circle</span> Masuk`;
         tag.textContent='';
       }
     });
@@ -166,89 +169,172 @@
       {name:'CNN ID', rss:'https://www.cnnindonesia.com/rss'},
       {name:'Tribun', rss:'https://www.tribunnews.com/rss'}
     ];
-    async function fetchRss(rss){
-      const url=\`https://api.rss2json.com/v1/api.json?rss_url=\${encodeURIComponent(rss)}\`;
-      const r=await fetch(url); const j=await r.json();
-      return (j.items||[]).map(x=>({
-        id: x.guid || x.link || Math.random().toString(36).slice(2),
-        title: x.title || 'Judul tidak tersedia',
-        desc: clean(x.description||x.content||'').slice(0,160),
-        img: (x.enclosure && x.enclosure.link) || (clean(x.description||'').match(/https?:\/\/\S+\.(jpg|png|jpeg|webp)/i)||[,''])[0] || 'https://via.placeholder.com/1200x700?text=NEWSHUB',
-        link: x.link || '#',
-        source: j.feed?.title || ''
-      }));
+    
+    async function fetchRss(rss, sourceName){
+      const url=`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rss)}`;
+      try {
+        const r=await fetch(url); 
+        const j=await r.json();
+        return (j.items||[]).map(x=>({
+          id: x.guid || x.link || Math.random().toString(36).slice(2),
+          title: x.title || 'Judul tidak tersedia',
+          desc: clean(x.description||x.content||'').slice(0,160),
+          img: (x.enclosure && x.enclosure.link) || (clean(x.description||'').match(/https?:\/\/\S+\.(jpg|png|jpeg|webp)/i)||[,''])[0] || 'https://via.placeholder.com/1200x700?text=NEWSHUB',
+          link: x.link || '#',
+          source: sourceName
+        }));
+      } catch (e) {
+        console.error(`Gagal memuat RSS dari ${sourceName}:`, e);
+        return [];
+      }
     }
-    async function loadNews(){
-      // render cepat: ambil Detik dulu
-      try{
-        const detik=await fetchRss(sources[0].rss);
-        news=[...dedupeByTitle(detik)].slice(0,8);
-        renderSlides();
-      }catch(e){ /* ignore */ renderSlides(true); }
-      // paralel: sumber lain → tambah sampai 15 item unik
-      Promise.allSettled(sources.slice(1).map(s=>fetchRss(s.rss))).then(res=>{
-        const more=res.flatMap(x=>x.status==='fulfilled'? x.value:[]);
-        const merged=dedupeByTitle([...news,...more]).slice(0,15);
-        news=merged; renderSlides();
+    
+    async function loadNews() {
+      const banner = document.getElementById('banner');
+      banner.querySelector('.loading')?.remove();
+      
+      // Inisialisasi struktur data untuk setiap sumber
+      sources.forEach(source => {
+        newsSources[source.name] = {
+          news: [],
+          currentIndex: 0
+        };
+      });
+      
+      // Muat berita dari sumber pertama
+      await loadNewsFromSource(sources[0].name);
+      
+      // Render slide pertama
+      renderSlides();
+      
+      // Muat berita dari sumber lainnya secara paralel
+      sources.slice(1).forEach(source => {
+        loadNewsFromSource(source.name);
       });
     }
+    
+    async function loadNewsFromSource(sourceName) {
+      const sourceConfig = sources.find(s => s.name === sourceName);
+      if (!sourceConfig) return;
+      
+      const newsItems = await fetchRss(sourceConfig.rss, sourceName);
+      newsSources[sourceName].news = dedupeByTitle(newsItems).slice(0, 10); // Maksimal 10 berita per sumber
+      
+      // Jika ini sumber yang sedang aktif, render ulang slides
+      const activeSource = Object.keys(newsSources)[currentSourceIndex];
+      if (sourceName === activeSource) {
+        renderSlides();
+      }
+    }
+    
     function dedupeByTitle(arr){
       const seen=new Set(); const out=[];
       arr.forEach(n=>{ const key=(n.title||'').toLowerCase(); if(!seen.has(key)){seen.add(key); out.push(n);} });
       return out.sort(()=>0.5-Math.random()); // kecilkan kemiripan, acak sedikit
     }
+    
+    function switchSource(direction) {
+      const sourceKeys = Object.keys(newsSources);
+      if (sourceKeys.length === 0) return;
+      
+      currentSourceIndex = (currentSourceIndex + direction + sourceKeys.length) % sourceKeys.length;
+      renderSlides();
+    }
+    
     function renderSlides(emptyOnly){
       const banner=document.getElementById('banner');
       banner.querySelector('.loading')?.remove();
       banner.querySelectorAll('.slide').forEach(n=>n.remove());
       slides=[];
-      if(emptyOnly || news.length===0){
+      
+      const sourceKeys = Object.keys(newsSources);
+      if (sourceKeys.length === 0 || emptyOnly) {
         const s=document.createElement('div'); s.className='slide active'; s.style.background='#111';
         s.innerHTML='<h2>Tidak ada berita</h2><p>Silakan muat ulang.</p>';
         banner.appendChild(s); slides=[s]; return;
       }
-      news.forEach((n,i)=>{
+      
+      const currentSource = sourceKeys[currentSourceIndex];
+      const newsItems = newsSources[currentSource].news;
+      
+      if (newsItems.length === 0) {
+        const s=document.createElement('div'); s.className='slide active'; s.style.background='#111';
+        s.innerHTML=`<h2>Tidak ada berita dari ${currentSource}</h2><p>Silakan muat ulang.</p>`;
+        banner.appendChild(s); slides=[s]; return;
+      }
+      
+      // Render berita dari sumber saat ini
+      newsItems.forEach((n,i)=>{
         const s=document.createElement('div');
-        s.className=\`slide \${i===0?'active':''}\`;
-        s.style.backgroundImage=\`url(\${n.img})\`;
-        s.innerHTML=\`
-          <h2>\${esc(n.title)}</h2>
-          <p>\${esc(n.desc)}…</p>
+        s.className=`slide ${i===0?'active':''}`;
+        s.style.backgroundImage=`url(${n.img})`;
+        s.innerHTML=`
+          <div class="source-badge">${n.source}</div>
+          <h2>${esc(n.title)}</h2>
+          <p>${esc(n.desc)}…</p>
           <div class="btns">
-            <a class="btn white" href="\${n.link}" target="_blank" rel="noopener">
+            <a class="btn white" href="${n.link}" target="_blank" rel="noopener">
               <span class="material-icons">open_in_new</span> Sumber
             </a>
-            <button class="btn ghost" onclick="prefillNews('\${encodeURIComponent(n.title)}')">
+            <button class="btn ghost" onclick="prefillNews('${encodeURIComponent(n.title)}')">
               <span class="material-icons">chat_bubble</span> Diskusi
             </button>
-            <button class="btn ghost" data-news-id="\${n.id}" onclick="likeNews('\${n.id}', this)">
+            <button class="btn ghost" data-news-id="${n.id}" onclick="likeNews('${n.id}', this)">
               <span class="material-icons">thumb_up</span> Suka <span class="news-like" style="margin-left:4px">0</span>
             </button>
-          </div>\`;
+          </div>`;
         banner.appendChild(s); slides.push(s);
         // muat jumlah like ringan (per slide satu query)
         updateNewsLikeCount(n.id, s.querySelector('.news-like'));
       });
+      
       idx=0; clearInterval(timer); if(slides.length>1) timer=setInterval(nextSlide,7000);
     }
-    function nextSlide(){ if(slides.length<2) return; slides[idx].classList.remove('active'); idx=(idx+1)%slides.length; slides[idx].classList.add('active'); }
-    document.getElementById('prev').onclick=()=>{ if(slides.length<2) return; clearInterval(timer); slides[idx].classList.remove('active'); idx=(idx-1+slides.length)%slides.length; slides[idx].classList.add('active'); timer=setInterval(nextSlide,7000); };
-    document.getElementById('next').onclick=()=>{ if(slides.length<2) return; clearInterval(timer); nextSlide(); timer=setInterval(nextSlide,7000); };
+    
+    function nextSlide(){ 
+      if(slides.length<2) return; 
+      slides[idx].classList.remove('active'); 
+      idx=(idx+1)%slides.length; 
+      slides[idx].classList.add('active'); 
+    }
+    
+    document.getElementById('prev').onclick=()=>{ 
+      if(slides.length<2) return; 
+      clearInterval(timer); 
+      slides[idx].classList.remove('active'); 
+      idx=(idx-1+slides.length)%slides.length; 
+      slides[idx].classList.add('active'); 
+      timer=setInterval(nextSlide,7000); 
+    };
+    
+    document.getElementById('next').onclick=()=>{ 
+      if(slides.length<2) return; 
+      clearInterval(timer); 
+      nextSlide(); 
+      timer=setInterval(nextSlide,7000); 
+    };
+    
+    // Tambahkan event listener untuk tombol ganti sumber
+    document.getElementById('prev').addEventListener('dblclick', () => switchSource(-1));
+    document.getElementById('next').addEventListener('dblclick', () => switchSource(1));
+
     function prefillNews(titleEnc){
       const title=decodeURIComponent(titleEnc);
       document.getElementById('postType').value='news';
-      document.getElementById('input').value=\`[Berita: \${title}] \`;
+      document.getElementById('input').value=`[Berita: ${title}] `;
       document.getElementById('input').focus();
       window.scrollTo({top:document.querySelector('.post-form').offsetTop-8,behavior:'smooth'});
     }
+    
     async function likeNews(newsId, btn){
       if(!me){ alert('Silakan login dulu'); return; }
-      const lkRef=db.collection('newsLikes').doc(\`\${newsId}_\${me.uid}\`);
+      const lkRef=db.collection('newsLikes').doc(`${newsId}_${me.uid}`);
       const doc=await lkRef.get();
       if(doc.exists){ await lkRef.delete(); }
       else{ await lkRef.set({newsId,userId:me.uid,time:firebase.firestore.FieldValue.serverTimestamp()}); }
       updateNewsLikeCount(newsId, btn.querySelector('.news-like'));
     }
+    
     async function updateNewsLikeCount(newsId, span){
       try{
         const snap=await db.collection('newsLikes').where('newsId','==',newsId).get();
@@ -292,23 +378,23 @@
           const liked=(v.likes||[]).includes(me?.uid);
           const canDelete=me && me.uid===v.uid;
           const it=document.createElement('div'); it.className='item';
-          const newsBlock = v.newsTitle ? \`<div class="news-ref"><strong>Referensi Berita:</strong><br>\${esc(v.newsTitle)}</div>\` : '';
-          it.innerHTML=\`
+          const newsBlock = v.newsTitle ? `<div class="news-ref"><strong>Referensi Berita:</strong><br>${esc(v.newsTitle)}</div>` : '';
+          it.innerHTML=`
             <div class="head">
-              <div class="avatar">\${v.photo? \`<img src="\${v.photo}">\`:'<span class="material-icons" style="color:#9ca3af">account_circle</span>'}</div>
+              <div class="avatar">${v.photo? `<img src="${v.photo}">`:'<span class="material-icons" style="color:#9ca3af">account_circle</span>'}</div>
               <div class="meta">
-                <div class="name">\${esc(v.name||'Pengguna')}</div>
-                <div class="time">\${fmtTime(v.time?.toDate?.())}</div>
+                <div class="name">${esc(v.name||'Pengguna')}</div>
+                <div class="time">${fmtTime(v.time?.toDate?.())}</div>
               </div>
             </div>
-            <div class="text">\${esc(v.text||'')}</div>
-            \${newsBlock}
+            <div class="text">${esc(v.text||'')}</div>
+            ${newsBlock}
             <div class="acts">
-              <button class="link" onclick="toggleLike('\${id}', \${liked})"><span class="material-icons">thumb_up</span> <span id="lk-\${id}">\${(v.likes||[]).length}</span></button>
-              <button class="link" onclick="toggleReplies('\${id}')"><span class="material-icons">chat_bubble</span> Balasan</button>
-              \${canDelete?'<button class="link danger" onclick="deleteDiscussion(\\'\'+id+'\\')"><span class="material-icons">delete</span> Hapus</button>':''}
+              <button class="link" onclick="toggleLike('${id}', ${liked})"><span class="material-icons">thumb_up</span> <span id="lk-${id}">${(v.likes||[]).length}</span></button>
+              <button class="link" onclick="toggleReplies('${id}')"><span class="material-icons">chat_bubble</span> Balasan</button>
+              ${canDelete?'<button class="link danger" onclick="deleteDiscussion(\''+id+'\')"><span class="material-icons">delete</span> Hapus</button>':''}
             </div>
-            <div id="replies-\${id}" class="replies" data-loaded="0" style="display:none"></div>\`;
+            <div id="replies-${id}" class="replies" data-loaded="0" style="display:none"></div>`;
           list.appendChild(it);
         });
         if(docs.length===pageSize){
@@ -321,6 +407,7 @@
         if(reset) document.getElementById('list').innerHTML='<div class="empty">Gagal memuat diskusi</div>';
       }
     }
+    
     async function postDiscussion(){
       if(!me){ alert('Silakan login dulu'); return; }
       const ta=document.getElementById('input'); const type=document.getElementById('postType').value;
@@ -335,6 +422,7 @@
       });
       ta.value=''; pageCursor=null; loadDiscussions(true);
     }
+    
     async function toggleLike(discId, liked){
       if(!me){ alert('Silakan login dulu'); return; }
       const ref=db.collection('discussions').doc(discId);
@@ -343,6 +431,7 @@
       const doc=await ref.get(); const c=(doc.data().likes||[]).length;
       const el=document.getElementById('lk-'+discId); if(el) el.textContent=c;
     }
+    
     async function deleteDiscussion(id){
       if(!me) return;
       if(!confirm('Hapus diskusi ini beserta semua balasan?')) return;
@@ -361,6 +450,7 @@
         if(box.getAttribute('data-loaded')==='0'){ await loadReplies(discId); box.setAttribute('data-loaded','1'); }
       }else{ box.style.display='none'; }
     }
+    
     async function loadReplies(discId){
       const box=document.getElementById('replies-'+discId);
       box.innerHTML='<div class="loading">Memuat balasan…</div>';
@@ -371,23 +461,24 @@
         snap.forEach(doc=>{
           const r=doc.data(); const canDel=me && me.uid===r.uid;
           const el=document.createElement('div'); el.className='r-item';
-          el.innerHTML=\`
+          el.innerHTML=`
             <div class="head">
-              <div class="avatar" style="width:28px;height:28px">\${r.photo? \`<img src="\${r.photo}">\`:'<span class="material-icons" style="font-size:22px;color:#9ca3af">account_circle</span>'}</div>
+              <div class="avatar" style="width:28px;height:28px">${r.photo? `<img src="${r.photo}">`:'<span class="material-icons" style="font-size:22px;color:#9ca3af">account_circle</span>'}</div>
               <div class="meta">
-                <div class="name" style="font-size:13px">\${esc(r.name||'Pengguna')}</div>
-                <div class="time">\${fmtTime(r.time?.toDate?.())}</div>
+                <div class="name" style="font-size:13px">${esc(r.name||'Pengguna')}</div>
+                <div class="time">${fmtTime(r.time?.toDate?.())}</div>
               </div>
             </div>
-            <div class="text" style="font-size:14px">\${esc(r.text||'')}</div>
-            \${canDel? \`<button class="link danger" style="margin-top:6px" onclick="deleteReply('\${doc.id}','\${discId}')"><span class="material-icons">delete</span> Hapus</button>\` : ''}\`;
+            <div class="text" style="font-size:14px">${esc(r.text||'')}</div>
+            ${canDel? `<button class="link danger" style="margin-top:6px" onclick="deleteReply('${doc.id}','${discId}')"><span class="material-icons">delete</span> Hapus</button>` : ''}`;
           box.appendChild(el);
         });
         const f=document.createElement('div'); f.className='reply-form';
-        f.innerHTML=\`<textarea id="rf-\${discId}" placeholder="Tulis balasan…"></textarea><button class="btn" onclick="sendReply('\${discId}')">Kirim</button>\`;
+        f.innerHTML=`<textarea id="rf-${discId}" placeholder="Tulis balasan…"></textarea><button class="btn" onclick="sendReply('${discId}')">Kirim</button>`;
         box.appendChild(f);
       }catch(e){ box.innerHTML='<div class="loading">Gagal memuat balasan</div>'; }
     }
+    
     async function sendReply(discId){
       if(!me){ alert('Silakan login dulu'); return; }
       const ta=document.getElementById('rf-'+discId); const text=ta.value.trim(); if(!text) return;
@@ -398,6 +489,7 @@
       });
       ta.value=''; loadReplies(discId);
     }
+    
     async function deleteReply(replyId, discId){
       if(!me) return;
       if(!confirm('Hapus balasan ini?')) return;
