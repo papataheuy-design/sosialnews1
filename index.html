@@ -1,733 +1,153 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PORTAL DISKUSI BERITA</title>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-    <link type="text/css" rel="stylesheet" href="https://www.gstatic.com/firebasejs/ui/6.0.1/firebase-ui-auth.css">
-    <style>
-        :root {
-            --primary: #4361ee;
-            --primary-dark: #3a0ca3;
-            --accent: #f72585;
-            --light: #f8f9fa;
-            --dark: #212529;
-            --gray: #6c757d;
-            --card-bg: #ffffff;
-        }
-        
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        
-        body {
-            font-family: 'Poppins', sans-serif;
-            background: #f5f7fa;
-            color: var(--dark);
-            line-height: 1.6;
-        }
-        
-        /* Header Styles */
-        .app-header {
-            background: var(--primary);
-            color: white;
-            padding: 15px 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        
-        .header-left { display: flex; align-items: center; gap: 10px; }
-        .app-logo { font-size: 1.5rem; font-weight: 700; }
-        .app-title { font-size: 1.3rem; font-weight: 600; }
-        
-        .auth-btn {
-            background: rgba(255,255,255,0.2);
-            border: none;
-            color: white;
-            padding: 8px 15px;
-            border-radius: 20px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 0.9rem;
-            transition: all 0.3s;
-        }
-        .auth-btn:hover { background: rgba(255,255,255,0.3); }
-        
-        .user-avatar { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; }
-        
-        /* Banner Slideshow */
-        .banner-container {
-            position: relative;
-            width: 100%;
-            height: 400px;
-            margin-bottom: 20px;
-            overflow: hidden;
-            background-color: #f0f0f0;
-        }
-        .banner-slide {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            opacity: 0;
-            transition: opacity 1s ease-in-out;
-            background-size: cover;
-            background-position: center;
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-end;
-            padding: 30px;
-            color: white;
-            background-color: rgba(0,0,0,0.5);
-            background-blend-mode: darken;
-        }
-        .banner-slide.active { opacity: 1; }
-        
-        .banner-content { max-width: 70%; }
-        .banner-content h2 { font-size: 2rem; margin-bottom: 15px; }
-        .banner-content p { margin-bottom: 20px; font-size: 1rem; }
-        
-        .banner-nav {
-            position: absolute;
-            top: 50%;
-            width: 100%;
-            display: flex;
-            justify-content: space-between;
-            padding: 0 20px;
-            transform: translateY(-50%);
-        }
-        .banner-nav-btn {
-            background: rgba(255,255,255,0.3);
-            border: none;
-            color: white;
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.2rem;
-            transition: all 0.3s;
-        }
-        .banner-nav-btn:hover { background: rgba(255,255,255,0.5); }
-        
-        /* News Reactions */
-        .news-reactions { display: flex; gap: 15px; margin-top: 15px; }
-        .reaction-btn {
-            display: flex; align-items: center; gap: 5px;
-            padding: 5px 15px; border-radius: 20px; border: none;
-            background: rgba(255,255,255,0.2); color: white; cursor: pointer; font-size: 0.9rem;
-        }
-        
-        /* Discussion Forum */
-        .forum-container { max-width: 800px; margin: 0 auto; padding: 20px; }
-        .forum-header { text-align: center; margin-bottom: 30px; }
-        .forum-header h2 { color: var(--primary); margin-bottom: 10px; }
-        
-        .discussion-form {
-            background: white; padding: 20px; border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 30px;
-        }
-        .form-title { margin-bottom: 15px; font-size: 1.2rem; color: var(--dark); }
-        .form-input {
-            width: 100%; padding: 12px 15px; border: 1px solid #ddd; border-radius: 8px;
-            font-family: 'Poppins', sans-serif; margin-bottom: 10px; resize: none;
-        }
-        .form-submit {
-            padding: 10px 20px; background: var(--primary); color: white; border: none;
-            border-radius: 8px; cursor: pointer; font-weight: 500; transition: background 0.3s;
-        }
-        .form-submit:hover { background: var(--primary-dark); }
-        
-        .discussion-list { background: white; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); overflow: hidden; }
-        .discussion-item { padding: 20px; border-bottom: 1px solid #eee; }
-        .discussion-header { display: flex; align-items: center; margin-bottom: 10px; }
-        
-        .user-avatar-block {
-            width: 40px; height: 40px; border-radius: 50%; background: #eee; margin-right: 10px;
-            display: flex; align-items: center; justify-content: center; color: var(--gray); overflow: hidden;
-        }
-        .user-avatar-block img { width: 100%; height: 100%; object-fit: cover; }
-        
-        .user-info { flex: 1; }
-        .username { font-weight: 600; margin-bottom: 2px; }
-        .post-time { font-size: 0.8rem; color: var(--gray); }
-        
-        .discussion-content { margin-bottom: 15px; }
-        .discussion-actions { display: flex; gap: 15px; }
-        .action-btn { display: flex; align-items: center; gap: 5px; background: none; border: none; color: var(--gray); cursor: pointer; font-size: 0.9rem; }
-        .action-btn:hover { color: var(--primary); }
-        
-        .news-reference { background: #f5f7fa; padding: 15px; border-radius: 8px; margin-top: 15px; border-left: 3px solid var(--primary); }
-        .news-reference h4 { margin-bottom: 5px; color: var(--primary); }
-        
-        /* Auth Modal */
-        .auth-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1100; }
-        .auth-modal-content {
-            background: white; max-width: 400px; width: 90%; margin: 100px auto; padding: 30px; border-radius: 10px; text-align: center; animation: fadeIn 0.3s ease;
-        }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-        
-        /* Loading Indicator */
-        .loading { text-align: center; padding: 30px; }
-        .loading-spinner {
-            border: 4px solid rgba(0,0,0,0.1); border-radius: 50%; border-top: 4px solid var(--primary);
-            width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 15px;
-        }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        
-        /* Responsive */
-        @media (max-width: 768px) {
-            .banner-container { height: 300px; }
-            .banner-content { max-width: 90%; }
-            .banner-content h2 { font-size: 1.5rem; }
-        }
-        @media (max-width: 480px) {
-            .banner-container { height: 250px; }
-            .banner-content h2 { font-size: 1.2rem; }
-            .app-title { display: none; }
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>Portal Diskusi</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <style>
+    body{margin:0;font-family:Poppins,sans-serif;background:#f5f7fa;color:#222}
+    header{display:flex;justify-content:space-between;align-items:center;padding:10px 20px;background:#4361ee;color:#fff;position:sticky;top:0}
+    header .logo{font-weight:600;font-size:18px}
+    #authBtn{background:#fff2;border:none;padding:6px 12px;border-radius:20px;color:#fff;cursor:pointer;display:flex;align-items:center;gap:8px}
+    #authBtn img{width:28px;height:28px;border-radius:50%}
+    .banner{height:280px;position:relative;overflow:hidden}
+    .slide{position:absolute;width:100%;height:100%;opacity:0;transition:opacity 1s;background-size:cover;background-position:center;display:flex;flex-direction:column;justify-content:flex-end;padding:20px;color:#fff;background-color:rgba(0,0,0,.4);background-blend-mode:darken}
+    .slide.active{opacity:1}
+    .slide h2{margin:0 0 8px;font-size:20px}
+    .slide p{margin:0 0 10px;font-size:14px}
+    .actions{display:flex;gap:10px}
+    .btn{display:flex;align-items:center;gap:5px;padding:4px 10px;border:none;border-radius:16px;cursor:pointer;font-size:13px}
+    .btn.source{background:#fff2;color:#fff}
+    .btn.react{background:#fff2;color:#fff}
+    .forum{max-width:700px;margin:20px auto;padding:0 15px}
+    .form{background:#fff;padding:15px;border-radius:8px;margin-bottom:20px;box-shadow:0 1px 4px rgba(0,0,0,.1)}
+    textarea{width:100%;padding:10px;border:1px solid #ccc;border-radius:6px;font-family:inherit;margin-bottom:10px}
+    .discussion{background:#fff;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.1);margin-bottom:15px;padding:15px}
+    .discussion .head{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+    .discussion .head img{width:32px;height:32px;border-radius:50%}
+    .discussion .user{font-weight:600;font-size:14px}
+    .discussion .time{font-size:12px;color:#666}
+    .discussion .text{margin:8px 0}
+    .discussion .act{display:flex;gap:10px;font-size:13px}
+    .loading{text-align:center;padding:20px;color:#666}
+    @media(max-width:500px){.slide h2{font-size:16px}}
+  </style>
 </head>
 <body>
-    <!-- App Header -->
-    <header class="app-header">
-        <div class="header-left">
-            <div class="app-logo">NEWSHUB</div>
-            <div class="app-title">Portal Diskusi</div>
-        </div>
-        <button id="authButton" class="auth-btn">
-            <span class="material-icons">account_circle</span>
-            <span id="authText">Masuk</span>
-        </button>
-    </header>
-    
-    <!-- Banner Slideshow -->
-    <div class="banner-container" id="bannerContainer">
-        <div class="loading">
-            <div class="loading-spinner"></div>
-            <p>Memuat berita terbaru...</p>
-        </div>
-        
-        <div class="banner-nav">
-            <button class="banner-nav-btn" id="prevSlide">❮</button>
-            <button class="banner-nav-btn" id="nextSlide">❯</button>
-        </div>
-    </div>
-    
-    <!-- Discussion Forum -->
-    <div class="forum-container">
-        <div class="forum-header">
-            <h2>Mulai Berdiskusi</h2>
-            <p>Bagikan pendapat Anda tentang berita terkini</p>
-        </div>
-        
-        <div class="discussion-form">
-            <h3 class="form-title" id="formTitle">Buat Diskusi Baru</h3>
-            <textarea class="form-input" placeholder="Apa yang ingin Anda diskusikan?" rows="3" id="discussionInput"></textarea>
-            <button class="form-submit" id="submitDiscussion">Posting Diskusi</button>
-        </div>
-        
-        <div class="discussion-list" id="discussionList">
-            <div class="loading">
-                <div class="loading-spinner"></div>
-                <p>Memuat diskusi...</p>
-            </div>
-        </div>
-    </div>
+<header>
+  <div class="logo">NEWSHUB</div>
+  <button id="authBtn"><span class="material-icons">account_circle</span> Masuk</button>
+</header>
 
-    <!-- Auth Modal -->
-    <div id="authModal" class="auth-modal">
-        <div class="auth-modal-content">
-            <h3>Masuk dengan Google</h3>
-            <p>Login untuk berpartisipasi dalam diskusi</p>
-            <div id="firebaseui-auth-container"></div>
-        </div>
-    </div>
+<div class="banner" id="banner"><div class="loading">Memuat berita...</div></div>
 
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/ui/6.0.1/firebase-ui-auth.js"></script>
-    
-    <script>
-        // Firebase Configuration
-        const firebaseConfig = {
-            apiKey: "AIzaSyAN825UwYIJ6zGgOpb8fYWZBeBfOSvNNU4",
-            authDomain: "socialnewshariini.firebaseapp.com",
-            projectId: "socialnewshariini",
-            storageBucket: "socialnewshariini.appspot.com",
-            messagingSenderId: "579951188459",
-            appId: "1:579951188459:web:83322616a6bfd971eea1ae",
-            measurementId: "G-7KSKKSPFH4"
-        };
-        
-        // Initialize Firebase
-        firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
-        const db = firebase.firestore();
-        
-        // FirebaseUI Config
-        const uiConfig = {
-            signInSuccessUrl: '#',
-            signInOptions: [
-                firebase.auth.GoogleAuthProvider.PROVIDER_ID
-            ],
-            credentialHelper: firebaseui.auth.CredentialHelper.NONE,
-            callbacks: {
-                signInSuccessWithAuthResult: function(authResult) {
-                    hideAuthModal();
-                    return false;
-                }
-            }
-        };
-        const ui = new firebaseui.auth.AuthUI(auth);
-        
-        // Global Variables
-        let currentUser = null;
-        let newsData = [];
-        let discussions = [];
-        let bannerSlides = [];
-        let currentSlideIndex = 0;
-        let slideInterval;
-        const slideDuration = 10000; // 10 seconds
-        
-        // News Sources with Fallback
-        const newsSources = [
-            { name: "Detik", url: "https://api.rss2json.com/v1/api.json?rss_url=https://rss.detik.com/index.php/detikcom" },
-            { name: "Kompas", url: "https://api.rss2json.com/v1/api.json?rss_url=https://rss.kompas.com/kompas-news.xml" },
-            { name: "CNN Indonesia", url: "https://api.rss2json.com/v1/api.json?rss_url=https://www.cnnindonesia.com/rss" },
-            { name: "Tribun News", url: "https://api.rss2json.com/v1/api.json?rss_url=https://www.tribunnews.com/rss" },
-            { name: "Kumparan", url: "https://api.rss2json.com/v1/api.json?rss_url=https://lapi.kumparan.com/v2.0/rss/" }
-        ];
-        
-        // Cache for news data
-        const newsCache = {
-            data: null,
-            timestamp: null,
-            cacheDuration: 15 * 60 * 1000 // 15 minutes
-        };
-        
-        // Helpers
-        function cleanText(text) {
-            if (!text) return '';
-            return text.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
-        }
-        function extractImage(html) {
-            const imgRegex = /<img[^>]+src="([^">]+)"/;
-            const match = html?.match(imgRegex);
-            return match ? match[1] : 'https://via.placeholder.com/600x400?text=NEWSHUB';
-        }
-        function formatDate(dateString) {
-            if (!dateString) return 'Baru saja';
-            const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
-            return date.toLocaleDateString('id-ID', { 
-                year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
-            });
-        }
-        
-        // Initialize the App
-        function initApp() {
-            autoLogin();
-            loadNews();
-            setupEventListeners();
-        }
-        
-        // Auto-login user
-        function autoLogin() {
-            auth.onAuthStateChanged(user => {
-                currentUser = user;
-                updateAuthUI();
-                if (user) {
-                    loadDiscussions(); // optimized one-shot load
-                } else {
-                    // anonymous view
-                    auth.signInAnonymously().catch(error => console.error("Anonymous sign-in error:", error));
-                }
-            });
-        }
-        
-        // Update auth UI
-        function updateAuthUI() {
-            const authBtn = document.getElementById('authButton');
-            if (currentUser && !currentUser.isAnonymous) {
-                authBtn.innerHTML = `
-                    ${currentUser.photoURL ? `<img src="${currentUser.photoURL}" class="user-avatar">` : 
-                    '<span class="material-icons">account_circle</span>'}
-                    <span id="authText">${currentUser.displayName || 'Akun Saya'}</span>
-                `;
-                document.getElementById('formTitle').textContent = `Diskusi sebagai ${currentUser.displayName || 'Pengguna'}`;
-            } else {
-                authBtn.innerHTML = `
-                    <span class="material-icons">account_circle</span>
-                    <span id="authText">Masuk</span>
-                `;
-                document.getElementById('formTitle').textContent = 'Buat Diskusi Baru';
-            }
-        }
-        
-        // Banner Slideshow
-        function initBannerSlides() {
-            const bannerContainer = document.getElementById('bannerContainer');
-            const loadingElement = bannerContainer.querySelector('.loading');
-            // Clear existing slides
-            bannerSlides.forEach(slide => { if (slide.parentNode === bannerContainer) bannerContainer.removeChild(slide); });
-            bannerSlides = [];
-            
-            // Add top 15 news as slides
-            const slidesToShow = Math.min(newsData.length, 15);
-            for (let i = 0; i < slidesToShow; i++) {
-                const news = newsData[i];
-                const slide = document.createElement('div');
-                slide.className = 'banner-slide';
-                slide.style.backgroundImage = `url(${news.thumbnail})`;
-                slide.dataset.newsId = news.id;
-                slide.innerHTML = `
-                    <div class="banner-content">
-                        <h2>${news.title}</h2>
-                        <p>${news.description.substring(0, 150)}${news.description.length > 150 ? '...' : ''}</p>
-                        <div class="news-reactions">
-                            <a class="reaction-btn" href="${news.link}" target="_blank" rel="noopener">
-                                <span class="material-icons">open_in_new</span> Sumber
-                            </a>
-                            <button class="reaction-btn" onclick="discussNews('${news.id}')">
-                                <span class="material-icons">chat_bubble</span> Diskusikan
-                            </button>
-                            <button class="reaction-btn" onclick="likeNews('${news.id}')">
-                                <span class="material-icons">thumb_up</span> Suka
-                            </button>
-                        </div>
-                    </div>
-                `;
-                bannerContainer.insertBefore(slide, loadingElement);
-                bannerSlides.push(slide);
-            }
-            if (loadingElement) loadingElement.style.display = 'none';
-            if (bannerSlides.length > 0) bannerSlides[0].classList.add('active');
-            startSlideShow();
-        }
-        function startSlideShow() {
-            clearInterval(slideInterval);
-            if (bannerSlides.length > 1) slideInterval = setInterval(nextSlide, slideDuration);
-        }
-        function resetSlideTimer() { clearInterval(slideInterval); startSlideShow(); }
-        function nextSlide() {
-            if (!bannerSlides.length) return;
-            bannerSlides[currentSlideIndex].classList.remove('active');
-            currentSlideIndex = (currentSlideIndex + 1) % bannerSlides.length;
-            bannerSlides[currentSlideIndex].classList.add('active');
-        }
-        function prevSlide() {
-            if (!bannerSlides.length) return;
-            bannerSlides[currentSlideIndex].classList.remove('active');
-            currentSlideIndex = (currentSlideIndex - 1 + bannerSlides.length) % bannerSlides.length;
-            bannerSlides[currentSlideIndex].classList.add('active');
-        }
-        
-        // Discuss News
-        function discussNews(newsId) {
-            const news = newsData.find(item => item.id === newsId);
-            if (!news) return;
-            const discussionInput = document.getElementById('discussionInput');
-            discussionInput.value = `[Berita: ${news.title}] `;
-            discussionInput.focus();
-            document.querySelector('.discussion-form').scrollIntoView({ behavior: 'smooth' });
-        }
-        
-        // Like News (placeholder toggle)
-        function likeNews(newsId) {
-            if (!currentUser || currentUser.isAnonymous) { showAuthModal(); return; }
-            // kamu bisa sambung ke koleksi 'newsLikes' seperti sebelumnya
-            console.log('Liked news:', newsId);
-        }
-        
-        // Fetch News (tetap seperti versi awalmu: coba semua sumber, cache 15 menit)
-        async function fetchNews() {
-            // Cache
-            if (newsCache.data && newsCache.timestamp && (Date.now() - newsCache.timestamp < newsCache.cacheDuration)) {
-                return newsCache.data;
-            }
-            try {
-                const sourcePromises = newsSources.map(source => {
-                    return fetch(source.url)
-                        .then(res => res.json())
-                        .then(data => {
-                            if (data.items && data.items.length > 0) {
-                                return data.items.map(item => ({
-                                    id: item.guid || Math.random().toString(36).substring(7),
-                                    title: item.title || "Judul tidak tersedia",
-                                    description: cleanText(item.description) || "Deskripsi tidak tersedia",
-                                    content: cleanText(item.content) || cleanText(item.description) || "Konten tidak tersedia",
-                                    thumbnail: item.enclosure?.link || extractImage(item.description),
-                                    link: item.link || "#",
-                                    pubDate: item.pubDate || new Date().toISOString(),
-                                    source: source.name
-                                }));
-                            }
-                            return [];
-                        })
-                        .catch(() => []);
-                });
-                const results = await Promise.all(sourcePromises);
-                const combined = results.flat();
-                // unique by title
-                const uniq=[], seen=new Set();
-                for (const n of combined) { if (!seen.has(n.title)) { seen.add(n.title); uniq.push(n); } }
-                uniq.sort((a,b)=> new Date(b.pubDate) - new Date(a.pubDate));
-                newsCache.data = uniq; newsCache.timestamp = Date.now();
-                return uniq;
-            } catch (e) {
-                // fallback
-                return [{
-                    id: "fallback-1",
-                    title: "Judul Berita Hari Ini",
-                    description: "Isi ulasan berita yang cukup panjang dan yang paling menarik sehingga mengundang interaksi",
-                    content: "Isi lengkap berita yang cukup panjang dan menarik untuk didiskusikan",
-                    thumbnail: "https://via.placeholder.com/600x400?text=NEWSHUB",
-                    link: "#",
-                    pubDate: new Date().toISOString(),
-                    source: "NEWSHUB"
-                }];
-            }
-        }
-        
-        // Load News
-        async function loadNews() {
-            const bannerContainer = document.getElementById('bannerContainer');
-            const loadingElement = bannerContainer.querySelector('.loading');
-            try {
-                newsData = await fetchNews();
-                initBannerSlides();
-            } catch (error) {
-                console.error("Failed to load news:", error);
-                if (loadingElement) loadingElement.innerHTML = "<p>Gagal memuat berita. Silakan refresh halaman.</p>";
-            }
-        }
-        
-        // ========= DISKUSI (REVISI: ringan & cepat) =========
-        async function loadDiscussions() {
-            const discussionList = document.getElementById('discussionList');
-            const loadingElement = discussionList.querySelector('.loading');
-            try {
-                const snap = await db.collection('discussions')
-                    .orderBy('timestamp', 'desc')
-                    .limit(50) // batas wajar agar cepat, tetap tampilkan banyak
-                    .get();    // one-shot fetch (bukan onSnapshot realtime)
-                
-                discussions = [];
-                snap.forEach(doc => {
-                    const data = doc.data();
-                    discussions.push({
-                        id: doc.id,
-                        ...data,
-                        timestamp: data.timestamp?.toDate()
-                    });
-                });
-                
-                if (loadingElement) loadingElement.style.display = 'none';
-                await renderDiscussions(); // render sekaligus
-            } catch (err) {
-                console.error("Error load discussions:", err);
-                if (loadingElement) loadingElement.innerHTML = "<p>Gagal memuat diskusi. Silakan refresh.</p>";
-            }
-        }
-        
-        async function renderDiscussions() {
-            const discussionList = document.getElementById('discussionList');
-            if (discussions.length === 0) {
-                discussionList.innerHTML = '<p style="padding: 20px; text-align: center;">Belum ada diskusi. Jadilah yang pertama berdiskusi!</p>';
-                return;
-            }
-            // Build HTML sekali, bukan append per item (lebih ringan)
-            let html = '';
-            for (const discussion of discussions) {
-                const news = newsData.find(item => item.id === discussion.newsId);
-                html += `
-                    <div class="discussion-item" data-id="${discussion.id}">
-                        <div class="discussion-header">
-                            <div class="user-avatar-block">
-                                ${discussion.userPhotoURL ? 
-                                    `<img src="${discussion.userPhotoURL}" alt="${discussion.userDisplayName || 'User'}">` : 
-                                    (discussion.userDisplayName?.charAt(0).toUpperCase() || 'A')}
-                            </div>
-                            <div class="user-info">
-                                <div class="username">${discussion.userDisplayName || 'Anonymous'}</div>
-                                <div class="post-time">${formatDate(discussion.timestamp)}</div>
-                            </div>
-                        </div>
-                        <div class="discussion-content">${discussion.text}</div>
-                        ${news ? `
-                        <div class="news-reference">
-                            <h4>Referensi Berita:</h4>
-                            <p>${news.title}</p>
-                        </div>` : ''}
-                        <div class="discussion-actions">
-                            <button class="action-btn" onclick="likeDiscussion('${discussion.id}')">
-                                <span class="material-icons">thumb_up</span>
-                                <span id="like-count-${discussion.id}">${(discussion.likes?.length)||0}</span>
-                            </button>
-                            <button class="action-btn" onclick="replyToDiscussion('${discussion.id}')">
-                                <span class="material-icons">reply</span>
-                                <span>Balas</span>
-                            </button>
-                        </div>
-                        <div id="replies-${discussion.id}" style="margin-top: 15px; padding-left: 20px; border-left: 2px solid #eee;">
-                            <div class="loading" id="replies-loading-${discussion.id}" style="display:none;">
-                                <div class="loading-spinner"></div><p>Memuat balasan...</p>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }
-            discussionList.innerHTML = html;
-            // setelah render, muat balasan sekali per diskusi (tetap ringan kalau data sedikit)
-            for (const d of discussions) {
-                loadRepliesOnce(d.id);
-            }
-        }
-        
-        // Replies (one-shot get, bukan realtime)
-        async function loadRepliesOnce(discussionId) {
-            const loading = document.getElementById(`replies-loading-${discussionId}`);
-            if (loading) loading.style.display = 'block';
-            try {
-                const snap = await db.collection('replies')
-                    .where('discussionId', '==', discussionId)
-                    .orderBy('timestamp', 'asc')
-                    .get();
-                const repliesContainer = document.getElementById(`replies-${discussionId}`);
-                let html = '';
-                snap.forEach(doc => {
-                    const reply = doc.data();
-                    html += `
-                        <div style="margin-bottom: 15px;">
-                            <div style="display: flex; align-items: center; margin-bottom: 5px;">
-                                <div class="user-avatar-block" style="width: 30px; height: 30px; font-size: 0.8rem;">
-                                    ${reply.userPhotoURL ?
-                                        `<img src="${reply.userPhotoURL}" alt="${reply.userDisplayName || 'User'}">` :
-                                        (reply.userDisplayName?.charAt(0).toUpperCase() || 'A')}
-                                </div>
-                                <div style="margin-left: 10px;">
-                                    <div style="font-weight: 500; font-size: 0.9rem;">${reply.userDisplayName || 'Anonymous'}</div>
-                                    <div style="font-size: 0.7rem; color: var(--gray);">${formatDate(reply.timestamp?.toDate())}</div>
-                                </div>
-                            </div>
-                            <div style="font-size: 0.9rem;">${reply.text}</div>
-                        </div>
-                    `;
-                });
-                repliesContainer.innerHTML = (html || '<div style="color:var(--gray);font-size:.9rem;">Belum ada balasan.</div>');
-            } catch (e) {
-                console.error('Error load replies:', e);
-            } finally {
-                if (loading) loading.style.display = 'none';
-            }
-        }
-        
-        // Like Discussion (optimisasi: update UI lokal, tidak pakai onSnapshot)
-        function likeDiscussion(discussionId) {
-            if (!currentUser || currentUser.isAnonymous) { showAuthModal(); return; }
-            const discussionRef = db.collection('discussions').doc(discussionId);
-            db.runTransaction(async transaction => {
-                const doc = await transaction.get(discussionRef);
-                if (!doc.exists) return;
-                const likes = doc.data().likes || [];
-                const idx = likes.indexOf(currentUser.uid);
-                if (idx === -1) likes.push(currentUser.uid); else likes.splice(idx, 1);
-                transaction.update(discussionRef, { likes });
-                // update UI langsung
-                const el = document.getElementById(`like-count-${discussionId}`);
-                if (el) el.textContent = likes.length;
-            }).catch(err => console.error("Transaction failed:", err));
-        }
-        
-        // Reply to Discussion
-        function replyToDiscussion(discussionId) {
-            if (!currentUser || currentUser.isAnonymous) { showAuthModal(); return; }
-            const replyText = prompt("Tulis balasan Anda:");
-            if (!replyText) return;
-            db.collection('replies').add({
-                discussionId,
-                text: replyText,
-                userId: currentUser.uid,
-                userDisplayName: currentUser.displayName || 'Anonymous',
-                userPhotoURL: currentUser.photoURL || null,
-                timestamp: firebase.firestore.FieldValue.serverTimestamp()
-            }).then(() => {
-                // refresh replies ringan utk diskusi ini saja
-                loadRepliesOnce(discussionId);
-            }).catch(error => {
-                console.error("Error adding reply:", error);
-                alert('Gagal menambahkan balasan. Silakan coba lagi.');
-            });
-        }
-        
-        // Add New Discussion
-        function addDiscussion() {
-            if (!currentUser || currentUser.isAnonymous) { showAuthModal(); return; }
-            const discussionInput = document.getElementById('discussionInput');
-            const text = discussionInput.value.trim();
-            if (!text) { alert('Konten diskusi harus diisi!'); return; }
-            // Extract news reference jika ada
-            let newsId = null;
-            const newsRefMatch = text.match(/\[Berita: (.+?)\]/);
-            if (newsRefMatch) {
-                const newsTitle = newsRefMatch[1];
-                const news = newsData.find(item => item.title.includes(newsTitle));
-                if (news) newsId = news.id;
-            }
-            db.collection('discussions').add({
-                text,
-                userId: currentUser.uid,
-                userDisplayName: currentUser.displayName || 'Anonymous',
-                userPhotoURL: currentUser.photoURL || null,
-                newsId,
-                likes: [],
-                timestamp: firebase.firestore.FieldValue.serverTimestamp()
-            }).then(async () => {
-                discussionInput.value = '';
-                await loadDiscussions(); // refresh ringan setelah tambah
-            }).catch(error => {
-                console.error("Error adding discussion:", error);
-                alert('Gagal menambahkan diskusi. Silakan coba lagi.');
-            });
-        }
-        
-        // Auth Modal
-        function showAuthModal() {
-            document.getElementById('authModal').style.display = 'block';
-            ui.start('#firebaseui-auth-container', uiConfig);
-        }
-        function hideAuthModal() {
-            document.getElementById('authModal').style.display = 'none';
-        }
-        
-        // Setup Event Listeners
-        function setupEventListeners() {
-            // Banner Navigation
-            document.getElementById('prevSlide').addEventListener('click', () => { prevSlide(); resetSlideTimer(); });
-            document.getElementById('nextSlide').addEventListener('click', () => { nextSlide(); resetSlideTimer(); });
-            // Discussion Form
-            document.getElementById('submitDiscussion').addEventListener('click', addDiscussion);
-            document.getElementById('discussionInput').addEventListener('keydown', (e) => {
-                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addDiscussion(); }
-            });
-            // Auth Button
-            document.getElementById('authButton').addEventListener('click', () => {
-                if (currentUser && !currentUser.isAnonymous) { auth.signOut(); } else { showAuthModal(); }
-            });
-        }
-        
-        // Initialize
-        document.addEventListener('DOMContentLoaded', initApp);
-    </script>
+<div class="forum">
+  <div class="form">
+    <textarea id="input" rows="3" placeholder="Apa pendapatmu?"></textarea>
+    <button id="postBtn">Posting</button>
+  </div>
+  <div id="list"><div class="loading">Memuat diskusi...</div></div>
+</div>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+<script>
+const firebaseConfig={apiKey:"AIzaSyAN825UwYIJ6zGgOpb8fYWZBeBfOSvNNU4",
+authDomain:"socialnewshariini.firebaseapp.com",projectId:"socialnewshariini",
+storageBucket:"socialnewshariini.appspot.com",messagingSenderId:"579951188459",
+appId:"1:579951188459:web:83322616a6bfd971eea1ae"};
+firebase.initializeApp(firebaseConfig);
+const auth=firebase.auth(),db=firebase.firestore();
+let user=null,newsData=[],slides=[],idx=0,timer;
+
+// Login/out
+auth.onAuthStateChanged(u=>{
+  user=u;
+  const btn=document.getElementById("authBtn");
+  if(u&&!u.isAnonymous){
+    btn.innerHTML=`<img src="${u.photoURL||''}"/> ${u.displayName||'User'}`;
+  }else{
+    btn.innerHTML='<span class="material-icons">account_circle</span> Masuk';
+  }
+});
+document.getElementById("authBtn").onclick=()=>{
+  if(user&&!user.isAnonymous) auth.signOut();
+  else auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
+};
+
+// News
+async function loadNews(){
+  const src="https://api.rss2json.com/v1/api.json?rss_url=https://rss.detik.com/index.php/detikcom";
+  try{
+    const res=await fetch(src),data=await res.json();
+    newsData=(data.items||[]).slice(0,5).map(n=>({
+      id:n.guid,title:n.title,desc:n.description.replace(/<[^>]+>/g,''),img:n.enclosure?.link||"https://via.placeholder.com/600x300",link:n.link
+    }));
+  }catch(e){newsData=[]}
+  renderSlides();
+}
+function renderSlides(){
+  const cont=document.getElementById("banner");
+  cont.innerHTML="";
+  newsData.forEach((n,i)=>{
+    const d=document.createElement("div");
+    d.className="slide"+(i==0?" active":"");
+    d.style.backgroundImage=`url(${n.img})`;
+    d.innerHTML=`<h2>${n.title}</h2><p>${n.desc.slice(0,100)}...</p>
+      <div class="actions">
+        <a href="${n.link}" target="_blank" class="btn source"><span class="material-icons">open_in_new</span> Sumber</a>
+        <button class="btn react" onclick="startDiscuss('${n.id}')"><span class="material-icons">chat_bubble</span> Diskusi</button>
+      </div>`;
+    cont.appendChild(d);slides.push(d);
+  });
+  if(slides.length>1) timer=setInterval(nextSlide,5000);
+}
+function nextSlide(){slides[idx].classList.remove("active");idx=(idx+1)%slides.length;slides[idx].classList.add("active");}
+
+// Diskusi
+async function loadDiscussions(){
+  const list=document.getElementById("list");
+  try{
+    const snap=await db.collection("discussions").orderBy("time","desc").limit(30).get();
+    if(snap.empty){list.innerHTML='<p style="text-align:center;color:#666">Belum ada diskusi</p>';return;}
+    list.innerHTML="";
+    snap.forEach(doc=>{
+      const d=doc.data();
+      const el=document.createElement("div");
+      el.className="discussion";
+      el.innerHTML=`
+        <div class="head">
+          ${d.photo?`<img src="${d.photo}">`:`<span class="material-icons">account_circle</span>`}
+          <div><div class="user">${d.name||'Anonim'}</div>
+          <div class="time">${d.time?.toDate().toLocaleString("id-ID")||''}</div></div>
+        </div>
+        <div class="text">${d.text}</div>
+        <div class="act"><span class="material-icons" style="font-size:16px">thumb_up</span> ${(d.likes||[]).length}</div>`;
+      list.appendChild(el);
+    });
+  }catch(e){list.innerHTML="<p>Gagal memuat diskusi</p>";}
+}
+function postDiscussion(){
+  if(!user||user.isAnonymous){alert("Login dulu");return;}
+  const txt=document.getElementById("input").value.trim();
+  if(!txt)return;
+  db.collection("discussions").add({
+    text:txt,name:user.displayName||"Anonim",photo:user.photoURL||"",
+    uid:user.uid,likes:[],time:firebase.firestore.FieldValue.serverTimestamp()
+  }).then(()=>{document.getElementById("input").value="";loadDiscussions();});
+}
+function startDiscuss(id){
+  const n=newsData.find(x=>x.id==id);
+  if(n){document.getElementById("input").value=`[Berita: ${n.title}] `;window.scrollTo({top:document.querySelector(".form").offsetTop,behavior:"smooth"});}
+}
+document.getElementById("postBtn").onclick=postDiscussion;
+
+// Init
+loadNews();loadDiscussions();
+</script>
 </body>
 </html>
