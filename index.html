@@ -80,6 +80,10 @@
     .post-row > div:last-child { width: 100%; display: flex; gap: 8px;}
     .post-row > div:last-child select, .post-row > div:last-child button { flex: 1; }
   }
+
+  /* skeleton */
+  .skeleton {background: linear-gradient(90deg, #f0f0f0, #e8e8e8, #f0f0f0); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; border-radius:8px;}
+  @keyframes shimmer { from { background-position: 200% 0 } to { background-position: -200% 0 } }
 </style>
 </head>
 <body>
@@ -184,6 +188,7 @@ const rssSources = [ // Sumber RSS untuk berita
   { name: 'Kompas', url: 'https://www.kompas.com/news/rss' }
 ];
 const newsCache = { data: null, t: 0, ttl: 10*60*1000 }; // Cache berita selama 10 menit
+const LS_KEY = 'pordisk_news_v1';
 
 /* ================= Referensi Elemen DOM ================= */
 const loginBtn = document.getElementById('loginBtn');
@@ -217,7 +222,11 @@ loginBtn.addEventListener('click', async () => {
 });
 
 logoutBtn.addEventListener('click', async () => {
-  await auth.signOut();
+  try {
+    await auth.signOut();
+  } catch(e) {
+    console.error('Logout failed', e);
+  }
 });
 
 // Memantau perubahan status autentikasi pengguna
@@ -261,105 +270,189 @@ function dedupeByTitle(arr) {
   return out;
 }
 
+// util: safely parse ISO date fallback
+function parseDate(d){
+  try { return new Date(d); } catch(e){ return new Date(); }
+}
+
+// Debounce helper
+function debounce(fn, wait){
+  let t;
+  return function(...args){
+    clearTimeout(t);
+    t = setTimeout(()=> fn.apply(this,args), wait);
+  }
+}
+
 // Fungsi untuk mengambil berita dari berbagai sumber RSS
-async function fetchRssMultiple() {
-  // Gunakan cache jika masih valid
-  if (newsCache.data && Date.now() - newsCache.t < newsCache.ttl) return newsCache.data;
+async function fetchRssMultiple(force=false) {
+  // Gunakan cache localStorage jika masih valid
   try {
-    const promises = rssSources.map(s =>
-      fetch('https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent(s.url))
-      .then(r => r.json())
-      .catch(e => { console.warn(`Gagal memuat RSS dari ${s.name}:`, e); return {items:[]}; }) // Tangani kesalahan fetch
-    );
-    const results = await Promise.allSettled(promises);
+    if (!force) {
+      const raw = localStorage.getItem(LS_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && parsed.t && (Date.now() - parsed.t) < newsCache.ttl) {
+          newsCache.data = parsed.items;
+          newsCache.t = parsed.t;
+          return newsCache.data;
+        }
+      }
+    }
+  } catch(e){
+    console.warn('LocalStorage read error', e);
+  }
+
+  // Jika cache tidak valid, fetch dari RSS provider (via rss2json)
+  try {
+    const fetches = rssSources.map(s => {
+      const url = 'https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent(s.url);
+      return fetch(url, {cache: 'no-cache'}).then(r => {
+        if(!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      }).catch(e => {
+        console.warn(`Gagal memuat RSS dari ${s.name}:`, e);
+        return {items:[]};
+      });
+    });
+
+    // Batasi waktu tunggu fetch gabungan agar tidak lama
+    const settled = await Promise.allSettled(fetches);
+
     let items = [];
-    for (const r of results) {
-      if (r.status === 'fulfilled' && r.value.items) {
+    for (const r of settled) {
+      if (r.status === 'fulfilled' && r.value && Array.isArray(r.value.items)) {
         for (const it of r.value.items) {
-          const imageUrl = (it.enclosure && it.enclosure.link) ||
-                          (it.thumbnail && it.thumbnail.length > 0 ? it.thumbnail[0] : null) ||
-                          ((it.content && (it.content.match(/https?:\/\/\S+\.(jpg|png|jpeg|gif|webp)/i) || [])[0]) ||
-                          'https://via.placeholder.com/1200x700?text=NEWS'; // Placeholder jika tidak ada gambar
+          // Temukan gambar dalam enclosure, thumbnail, atau content
+          const findImg = (src) => {
+            if(!src) return null;
+            const m = (src.match(/https?:\/\/[^'">\s]+\.(?:jpg|jpeg|png|gif|webp)(\?[^'"]*)?/i) || []);
+            return m[0] || null;
+          };
+          const imageUrl =
+            (it.enclosure && it.enclosure.link) ||
+            (it.thumbnail && it.thumbnail[0]) ||
+            findImg(it.content) ||
+            findImg(it.description) ||
+            'https://via.placeholder.com/1200x700?text=NEWS';
+
           items.push({
-            id: it.guid || it.link || Math.random().toString(36).slice(2),
+            id: String(it.guid || it.link || Math.random().toString(36).slice(2)),
             title: it.title || 'Tanpa Judul',
-            description: (it.description || it.content || '').replace(/<[^>]+>/g,'').trim().slice(0,250) + '...', // Hapus tag HTML
+            description: ((it.description || it.content || '') + '').replace(/<[^>]+>/g,'').trim().slice(0,250),
             thumbnail: imageUrl,
             link: it.link || '#',
-            pubDate: it.pubDate || (it.isoDate || new Date().toISOString())
+            pubDate: it.pubDate || it.isoDate || new Date().toISOString()
           });
         }
       }
     }
+
     // Hilangkan duplikasi berdasarkan judul dan urutkan berdasarkan tanggal publikasi terbaru
     items = dedupeByTitle(items);
-    items.sort((a,b) => new Date(b.pubDate) - new Date(a.pubDate));
-    // Cache dan batasi jumlah berita
-    const limited = items.slice(0, 15);
+    items.sort((a,b)=> parseDate(b.pubDate) - parseDate(a.pubDate));
+    // Batasi jumlah berita
+    const limited = items.slice(0, 12);
     newsCache.data = limited; newsCache.t = Date.now();
+
+    try {
+      localStorage.setItem(LS_KEY, JSON.stringify({t: newsCache.t, items: limited}));
+    } catch(e){ /* ignore localStorage write errors */ }
+
     return limited;
   } catch (e) {
     console.error('Kesalahan saat mengambil RSS:', e);
-    return [];
+    return newsCache.data || [];
   }
 }
 
-// Fungsi untuk memuat berita dan merender slider
-async function loadNewsAndRender() {
-  // Hapus slide yang ada
-  banner.querySelectorAll('.slide').forEach(n => n.remove());
-  // Tampilkan indikator loading sementara
-  const loading = document.createElement('div');
-  loading.className = 'slide active';
-  loading.innerHTML = `<div class="media" style="background:#111"></div><div class="overlay"><div class="title">Memuat berita…</div><div class="excerpt">Harap tunggu sebentar.</div></div>`;
-  banner.appendChild(loading);
+/* ================= Lazy background loading via IntersectionObserver ================= */
+const bgObserver = new IntersectionObserver(entries => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      const el = entry.target;
+      const bg = el.dataset.bg;
+      if (bg) {
+        el.querySelector('.media').style.backgroundImage = `url('${bg}')`;
+        // set attribute to avoid reloading
+        delete el.dataset.bg;
+      }
+      bgObserver.unobserve(el);
+    }
+  });
+}, { root: null, rootMargin: '200px', threshold: 0.01 });
 
-  newsItems = await fetchRssMultiple();
+/* Fungsi untuk menampilkan skeleton di banner */
+function showBannerSkeleton() {
+  banner.querySelectorAll('.slide').forEach(n=>n.remove());
+  const s = document.createElement('div');
+  s.className = 'slide active';
+  s.innerHTML = `<div class="media" style="background:#111"></div><div class="overlay"><div class="title skeleton" style="width:60%;height:28px;border-radius:6px"></div><div style="height:12px"></div><div class="excerpt skeleton" style="width:80%;height:16px;border-radius:6px"></div></div>`;
+  banner.appendChild(s);
+}
+
+/* Fungsi untuk memuat berita dan merender slider */
+async function loadNewsAndRender(force=false) {
+  // Hapus slide yang ada dan tampilkan skeleton
+  banner.querySelectorAll('.slide').forEach(n => n.remove());
+  showBannerSkeleton();
+
+  try {
+    newsItems = await fetchRssMultiple(force);
+  } catch(e){
+    newsItems = [];
+  }
+
+  // Jika tidak ada berita
   if (!newsItems || newsItems.length === 0) {
-    loading.querySelector('.title').textContent = 'Tidak ada berita yang tersedia.';
-    loading.querySelector('.excerpt').textContent = 'Coba refresh nanti.';
+    banner.querySelectorAll('.slide').forEach(n=>n.remove());
+    const s = document.createElement('div');
+    s.className = 'slide active';
+    s.innerHTML = `<div class="media" style="background:#111"></div><div class="overlay"><div class="title">Tidak ada berita yang tersedia.</div><div class="excerpt">Coba refresh nanti.</div></div>`;
+    banner.appendChild(s);
     return;
   }
-  // Hapus indikator loading
+
+  // Hapus skeleton
   banner.querySelectorAll('.slide').forEach(n => n.remove());
 
-  // Render setiap item berita sebagai slide
+  // Render setiap item berita sebagai slide (tetap menggunakan struktur HTML yang sama)
   newsItems.forEach((n,i) => {
     const s = document.createElement('div');
     s.className = 'slide' + (i===0 ? ' active' : '');
+    // We store thumbnail in data-bg for lazy-setting background
+    s.dataset.bg = encodeURI(n.thumbnail || '');
     s.innerHTML = `
-      <div class="media" style="background-image:url('${escapeHtml(n.thumbnail)}')"></div>
+      <div class="media" style="background:#222;"></div>
       <div class="overlay">
         <div class="title">${escapeHtml(n.title)}</div>
-        <div class="excerpt">${escapeHtml(n.description)}</div>
+        <div class="excerpt">${escapeHtml((n.description||'').slice(0,250))}${n.description && n.description.length>250? '...': ''}</div>
         <div class="actions">
           <a class="chip" href="${escapeHtml(n.link)}" target="_blank" rel="noopener"><span>🔗</span> Sumber</a>
-          <button class="chip" onclick="prefillFromNews('${escapeHtml(n.id)}')">💬 Diskusi</button>
+          <button class="chip" data-news-id="${escapeHtml(n.id)}">💬 Diskusi</button>
           <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
-            <button class="chip" onclick="toggleNewsLike('${escapeHtml(n.id)}')">👍 <span class="nl-count">0</span></button>
-            <button class="chip" onclick="toggleNewsDislike('${escapeHtml(n.id)}')">👎 <span class="nd-count">0</span></button>
+            <button class="chip like-btn" data-news-id="${escapeHtml(n.id)}">👍 <span class="nl-count">0</span></button>
+            <button class="chip dislike-btn" data-news-id="${escapeHtml(n.id)}">👎 <span class="nd-count">0</span></button>
           </div>
         </div>
         <div style="height:8px"></div>
         <div style="display:flex;gap:10px;align-items:center">
           <input id="news-comment-${escapeId(n.id)}" placeholder="beri tanggapan berita ini" style="flex:1;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:#fff; outline:none;" class="focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-          <button class="btn" onclick="postNewsComment('${escapeHtml(n.id)}')">Kirim</button>
+          <button class="btn comment-send" data-news-id="${escapeHtml(n.id)}">Kirim</button>
         </div>
       </div>
     `;
     banner.appendChild(s);
+    // observe for lazy bg load
+    bgObserver.observe(s);
 
-    // Memuat jumlah like/dislike secara real-time untuk setiap berita
-    watchNewsLikeCounts(n.id, s);
+    // attach simple event delegation handlers (we'll attach global listener to banner below)
   });
 
-  resetSlideTimer(); // Mulai/reset timer slide otomatis
+  // limit timer and reset
+  slideIndex = 0;
+  resetSlideTimer();
 }
-
-// Fungsi helper untuk mengamankan string dari HTML
-function escapeHtml(s){ return String(s||'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
-// Fungsi helper untuk membuat ID yang aman untuk elemen DOM
-function escapeId(id){ return String(id).replace(/[^a-z0-9_\-]/gi,'_'); }
 
 /* Kontrol Slider */
 prevBtn.addEventListener('click', ()=>{ moveSlide(-1); resetSlideTimer(); });
@@ -372,6 +465,12 @@ function moveSlide(delta){
   slides[slideIndex].classList.remove('active');
   slideIndex = (slideIndex + delta + slides.length) % slides.length;
   slides[slideIndex].classList.add('active');
+  // Ensure background for newly active slide is loaded
+  const s = slides[slideIndex];
+  if (s && s.dataset.bg) {
+    s.querySelector('.media').style.backgroundImage = `url('${s.dataset.bg}')`;
+    delete s.dataset.bg;
+  }
 }
 // Fungsi untuk mereset timer slide otomatis
 function resetSlideTimer(){
@@ -381,60 +480,71 @@ function resetSlideTimer(){
 
 /* ================= Berita: Like / Dislike & Komentar ================= */
 
-// Fungsi untuk mengubah status like berita
+// Note: to reduce number of realtime listeners, we'll attach listeners for likes when user interacts with slide area
+// rather than creating global listeners for every slide at load time.
+
+// Toggle News Like
 async function toggleNewsLike(newsId){
   if(!me){ alert('Silakan login dulu untuk memberi reaksi.'); return; }
-  const docRef = db.collection('news_reactions').doc(`${newsId}_${me.uid}`); // Menggabungkan newsId dan uid
-  const docSnap = await docRef.get();
-  const currentReaction = docSnap.exists() ? docSnap.data().reaction : null;
+  try {
+    const docRef = db.collection('news_reactions').doc(`${newsId}_${me.uid}`);
+    const docSnap = await docRef.get();
+    const currentReaction = docSnap.exists() ? docSnap.data().reaction : null;
 
-  if (currentReaction === 'like') {
-    await docRef.delete(); // Batalkan like
-  } else {
-    // Hapus dislike jika ada, lalu tambahkan like
-    await docRef.set({ 
-      newsId, 
-      uid: me.uid, 
-      reaction: 'like', 
-      ts: firebase.firestore.FieldValue.serverTimestamp() 
-    });
+    if (currentReaction === 'like') {
+      await docRef.delete(); // Batalkan like
+    } else {
+      await docRef.set({
+        newsId,
+        uid: me.uid,
+        reaction: 'like',
+        ts: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }
+  } catch(e) {
+    console.error('toggleNewsLike error', e);
   }
 }
 
-// Fungsi untuk mengubah status dislike berita
+// Toggle News Dislike
 async function toggleNewsDislike(newsId){
   if(!me){ alert('Silakan login dulu untuk memberi reaksi.'); return; }
-  const docRef = db.collection('news_reactions').doc(`${newsId}_${me.uid}`); // Menggabungkan newsId dan uid
-  const docSnap = await docRef.get();
-  const currentReaction = docSnap.exists() ? docSnap.data().reaction : null;
+  try {
+    const docRef = db.collection('news_reactions').doc(`${newsId}_${me.uid}`);
+    const docSnap = await docRef.get();
+    const currentReaction = docSnap.exists() ? docSnap.data().reaction : null;
 
-  if (currentReaction === 'dislike') {
-    await docRef.delete(); // Batalkan dislike
-  } else {
-    // Hapus like jika ada, lalu tambahkan dislike
-    await docRef.set({ 
-      newsId, 
-      uid: me.uid, 
-      reaction: 'dislike', 
-      ts: firebase.firestore.FieldValue.serverTimestamp() 
-    });
+    if (currentReaction === 'dislike') {
+      await docRef.delete(); // Batalkan dislike
+    } else {
+      await docRef.set({
+        newsId,
+        uid: me.uid,
+        reaction: 'dislike',
+        ts: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }
+  } catch(e) {
+    console.error('toggleNewsDislike error', e);
   }
 }
 
-// Memantau jumlah like/dislike berita secara real-time
-function watchNewsLikeCounts(newsId, slideEl){
-  // Like counts
-  db.collection('news_reactions').where('newsId','==',newsId).where('reaction','==','like').onSnapshot(snap=>{
-    const c = snap.size;
-    const span = slideEl.querySelector('.nl-count');
-    if(span) span.textContent = c;
-  });
-  // Dislike counts
-  db.collection('news_reactions').where('newsId','==',newsId).where('reaction','==','dislike').onSnapshot(snap=>{
-    const c = snap.size;
-    const span = slideEl.querySelector('.nd-count');
-    if(span) span.textContent = c;
-  });
+// Watch aggregate counts for a single news item (create single listener that updates both counts)
+function watchNewsLikeCountsOnce(newsId, container){
+  // Avoid attaching multiple listeners per slide by marking dataset
+  if (!container || container.dataset.newsListenerAttached) return;
+  container.dataset.newsListenerAttached = '1';
+
+  const likeQ = db.collection('news_reactions').where('newsId','==',newsId);
+  // single listener - compute counts locally
+  likeQ.onSnapshot(snap => {
+    const likes = snap.docs.filter(d => d.data().reaction === 'like').length;
+    const dislikes = snap.docs.filter(d => d.data().reaction === 'dislike').length;
+    const nl = container.querySelector('.nl-count');
+    const nd = container.querySelector('.nd-count');
+    if (nl) nl.textContent = likes;
+    if (nd) nd.textContent = dislikes;
+  }, err => console.error('watchNewsLikeCountsOnce error', err));
 }
 
 // Fungsi untuk memposting komentar berita
@@ -446,38 +556,44 @@ async function postNewsComment(newsId){
   const text = input.value.trim();
   if(!text) return;
 
-  // Menambahkan komentar ke koleksi news_comments
-  await db.collection('news_comments').add({
-    newsId, 
-    text, 
-    name: me.displayName||'Anonim', 
-    photo: me.photoURL||'', 
-    uid: me.uid,
-    ts: firebase.firestore.FieldValue.serverTimestamp()
-  });
-  input.value = '';
+  try {
+    // Menambahkan komentar ke koleksi news_comments
+    await db.collection('news_comments').add({
+      newsId,
+      text,
+      name: me.displayName||'Anonim',
+      photo: me.photoURL||'',
+      uid: me.uid,
+      ts: firebase.firestore.FieldValue.serverTimestamp()
+    });
 
-  // Membuat entri posting forum yang mereferensikan komentar berita ini
-  const newsTitle = newsItems.find(n => n.id === newsId)?.title || null;
-  await db.collection('forum_posts').add({
-    type:'news', 
-    newsId, 
-    newsTitle: newsTitle,
-    text, 
-    name: me.displayName||'Anonim', 
-    photo: me.photoURL||'', 
-    uid: me.uid,
-    likes: [], 
-    time: firebase.firestore.FieldValue.serverTimestamp()
-  });
-  alert('Komentar berita diposting dan ditambahkan ke forum.');
-  // Listener forum akan otomatis memperbarui tampilan
+    // Membuat entri posting forum yang mereferensikan komentar berita ini
+    const newsTitle = newsItems.find(n => n.id === newsId)?.title || null;
+    await db.collection('forum_posts').add({
+      type:'news',
+      newsId,
+      newsTitle: newsTitle,
+      text,
+      name: me.displayName||'Anonim',
+      photo: me.photoURL||'',
+      uid: me.uid,
+      likes: [],
+      time: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    input.value = '';
+    alert('Komentar berita diposting dan ditambahkan ke forum.');
+  } catch(e) {
+    console.error('postNewsComment error', e);
+    alert('Gagal mengirim komentar. Silakan coba lagi.');
+  }
 }
 
 /* ================= Forum (posts, replies, pagination, filter) ================= */
 let lastVisible = null; // Dokumen terakhir yang terlihat untuk paginasi
 let loadingForum = false; // Status loading forum
 let currentFilter = 'all'; // Filter aktif saat ini ('all', 'news', 'local')
+let forumUnsub = null; // Untuk menghentikan listener sebelumnya
 
 function showLoadingInList(){ listEl.innerHTML = '<div class="small">Memuat diskusi…</div>'; }
 function showEmptyList(){ listEl.innerHTML = '<div class="small">Belum ada diskusi</div>'; }
@@ -497,13 +613,13 @@ async function loadForumMore(){
     if(snap.empty && !lastVisible){ showEmptyList(); }
     snap.docs.forEach(doc => renderForumItem(doc));
 
-    if(snap.docs.length >= 12){ // Jika ada kemungkinan ada lebih banyak data
+    if(snap.docs.length >= 12){
       lastVisible = snap.docs[snap.docs.length-1];
       moreBtn.style.display = 'block';
       moreBtn.textContent = 'Muat lebih banyak';
     } else {
       lastVisible = null;
-      moreBtn.style.display='none'; // Sembunyikan tombol jika tidak ada lagi data
+      moreBtn.style.display='none';
     }
   }catch(e){
     console.error('Gagal memuat forum:', e);
@@ -526,7 +642,7 @@ function renderForumItem(doc){
   item.innerHTML = `
     <div class="meta">
       <div style="display:flex;gap:10px;align-items:center">
-        <div class="avatar">${v.photo? `<img src="${escapeHtml(v.photo)}">` : `<span>${escapeHtml(v.name||'👤').charAt(0).toUpperCase()}</span>`}</div>
+        <div class="avatar">${v.photo? `<img src="${escapeHtml(v.photo)}">` : `<span>${escapeHtml((v.name||'👤').charAt(0)).toUpperCase()}</span>`}</div>
         <div>
           <div class="name">${escapeHtml(v.name||'Pengguna Anonim')}</div>
           <div class="small">${fmt(v.time?.toDate?.() || v.time)}</div>
@@ -534,17 +650,17 @@ function renderForumItem(doc){
       </div>
     </div>
     <div class="text">${escapeHtml(v.text)}</div>
-    ${v.type === 'news' && v.newsTitle ? `<div class="news-ref"><strong>Diskusi Berita:</strong> <a href="#" onclick="prefillFromNews('${escapeId(v.newsId)}')">${escapeHtml(v.newsTitle)}</a></div>` : ''}
+    ${v.type === 'news' && v.newsTitle ? `<div class="news-ref"><strong>Diskusi Berita:</strong> <a href="#" data-news-id="${escapeHtml(v.newsId)}">${escapeHtml(v.newsTitle)}</a></div>` : ''}
     <div class="acts">
-      <button onclick="toggleForumLike('${id}')" class="${liked ? 'text-blue-500' : ''}">👍 <span id="f-lk-${id}">${(v.likes||[]).length}</span></button>
-      <button onclick="openReplies('${id}')">💬 Balasan</button>
-      ${canDelete ? `<button onclick="deleteForumPost('${id}')" class="btn danger">🗑 Hapus</button>` : ''}
+      <button class="forum-like-btn" data-id="${id}">👍 <span id="f-lk-${id}">${(v.likes||[]).length}</span></button>
+      <button class="open-replies-btn" data-id="${id}">💬 Balasan</button>
+      ${canDelete ? `<button class="btn danger delete-post-btn" data-id="${id}">🗑 Hapus</button>` : ''}
     </div>
     <div id="replies-${id}" class="reply-list" style="display:none"></div>
   `;
   listEl.appendChild(item);
-  
-  // Attach real-time listener for likes
+
+  // Attach real-time listener for likes (single small listener)
   attachForumLikeListener(id, `f-lk-${id}`);
 }
 
@@ -557,29 +673,32 @@ function fmt(d){
 
 /* Realtime listener untuk memperbarui jumlah like forum posts */
 function attachForumLikeListener(postId, elementId) {
-  db.collection('forum_posts').doc(postId).onSnapshot(docSnap => {
-    if (docSnap.exists) {
-      const data = docSnap.data();
-      const likes = data.likes || [];
-      const span = document.getElementById(elementId);
-      if (span) {
-        span.textContent = likes.length;
-        // Update button style based on whether current user has liked
-        const btn = span.closest('button');
-        if (btn && me) {
-          if (likes.includes(me.uid)) {
-            btn.classList.add('text-blue-500');
-          } else {
-            btn.classList.remove('text-blue-500');
+  try {
+    db.collection('forum_posts').doc(postId).onSnapshot(docSnap => {
+      if (docSnap.exists) {
+        const data = docSnap.data();
+        const likes = data.likes || [];
+        const span = document.getElementById(elementId);
+        if (span) {
+          span.textContent = likes.length;
+          // Update button style based on whether current user has liked
+          const btn = span.closest('button');
+          if (btn && me) {
+            if (likes.includes(me.uid)) {
+              btn.classList.add('text-blue-500');
+            } else {
+              btn.classList.remove('text-blue-500');
+            }
           }
         }
       }
-    }
-  });
+    });
+  } catch(e) {
+    console.error('attachForumLikeListener error', e);
+  }
 }
 
 // Listener utama untuk postingan forum dengan filter
-let forumUnsub = null; // Untuk menghentikan listener sebelumnya
 function attachFilteredForumListener(filter){
   if(forumUnsub) forumUnsub(); // Hentikan listener yang ada
   forumUnsub = null;
@@ -625,19 +744,19 @@ postBtn.addEventListener('click', async ()=>{
   if(!text) return;
 
   let payload = {
-    text, 
-    type, 
-    name: me.displayName||'Anonim', 
-    photo: me.photoURL||'', 
+    text,
+    type,
+    name: me.displayName||'Anonim',
+    photo: me.photoURL||'',
     uid: me.uid,
-    likes: [], 
+    likes: [],
     time: firebase.firestore.FieldValue.serverTimestamp()
   };
   // Mengekstrak judul berita jika ini adalah diskusi berita dan diformat dengan [Berita: Judul]
   if(type === 'news') {
-    const m = text.match(/\[Berita:\s*(.+?)(?:\s*\]|$)/); // Memperbaiki regex untuk menangani judul tanpa tutup kurung siku
+    const m = text.match(/\[Berita:\s*(.+?)(?:\s*\]|$)/);
     if(m && m[1]) payload.newsTitle = m[1].trim();
-    else payload.newsTitle = null; // Jika tidak ada, pastikan null
+    else payload.newsTitle = null;
   }
 
   try{
@@ -676,15 +795,12 @@ async function deleteForumPost(id){
   if(!confirm('Apakah Anda yakin ingin menghapus postingan ini dan semua balasannya?')) return;
 
   try{
-    const batch = db.batch(); // Menggunakan batch untuk operasi multi-dokumen atomik
-    // Hapus semua balasan terkait postingan ini
+    const batch = db.batch();
     const repliesSnap = await db.collection('forum_replies').where('discussionId','==',id).get();
     repliesSnap.forEach(r => batch.delete(db.collection('forum_replies').doc(r.id)));
-    // Hapus postingan itu sendiri
     batch.delete(db.collection('forum_posts').doc(id));
-    await batch.commit(); // Eksekusi batch operasi
+    await batch.commit();
     alert('Postingan dan balasannya berhasil dihapus.');
-    // UI akan diperbarui secara otomatis oleh listener realtime
   }catch(e){
     console.error('Gagal menghapus postingan:', e);
     alert('Gagal menghapus. Silakan coba lagi.');
@@ -701,18 +817,17 @@ async function openReplies(postId){
     // Muat balasan hanya jika belum dimuat
     if(!box.dataset.loaded){
       box.innerHTML = '<div class="small">Memuat balasan…</div>';
-      // Menggunakan onSnapshot untuk balasan real-time
       db.collection('forum_replies')
         .where('discussionId','==',postId)
         .orderBy('time','asc')
         .onSnapshot(snapshot => {
-            box.innerHTML = ''; // Bersihkan balasan yang ada
+            box.innerHTML = '';
             snapshot.forEach(doc => {
                 const r = doc.data();
                 const el = document.createElement('div'); el.className = 'reply';
                 el.innerHTML = `
                     <div style="display:flex;gap:10px;align-items:center">
-                        <div class="avatar">${r.photo?`<img src="${escapeHtml(r.photo)}">`:'<span>'+escapeHtml(r.name||'👤').charAt(0).toUpperCase()+'</span>'}</div>
+                        <div class="avatar">${r.photo?`<img src="${escapeHtml(r.photo)}">`:'<span>'+escapeHtml((r.name||'👤').charAt(0)).toUpperCase()+'</span>'}</div>
                         <div>
                             <div class="name">${escapeHtml(r.name||'Pengguna Anonim')}</div>
                             <div class="small">${fmt(r.time?.toDate?.()||r.time)}</div>
@@ -733,7 +848,7 @@ async function openReplies(postId){
         });
     }
   } else {
-    box.style.display = 'none'; // Sembunyikan balasan
+    box.style.display = 'none';
   }
 }
 
@@ -747,14 +862,14 @@ async function sendReply(postId){
 
   try {
     await db.collection('forum_replies').add({
-      discussionId: postId, 
-      text, 
-      name: me.displayName||'Anonim', 
-      photo: me.photoURL||'', 
+      discussionId: postId,
+      text,
+      name: me.displayName||'Anonim',
+      photo: me.photoURL||'',
       uid: me.uid,
       time: firebase.firestore.FieldValue.serverTimestamp()
     });
-    ta.value = ''; // Bersihkan input
+    ta.value = '';
     alert('Balasan berhasil dikirim.');
   } catch(e) {
     console.error('Gagal mengirim balasan:', e);
@@ -763,13 +878,80 @@ async function sendReply(postId){
 }
 
 /* ================= Binding Kontrol ================= */
-refreshNews.addEventListener('click', ()=>{ newsCache.t = 0; loadNewsAndRender(); });
+const debouncedLoadNews = debounce(()=>{ newsCache.t = 0; loadNewsAndRender(true); }, 800);
+refreshNews.addEventListener('click', ()=>{ debouncedLoadNews(); });
 tabAll.addEventListener('click', ()=>{ setTab('all'); });
 tabNews.addEventListener('click', ()=>{ setTab('news'); });
 tabLocal.addEventListener('click', ()=>{ setTab('local'); });
-moreBtn.addEventListener('click', loadForumMore); // Event listener untuk tombol "Muat lebih banyak"
+moreBtn.addEventListener('click', loadForumMore);
 
-// Fungsi untuk mengganti tab forum
+// Event delegation for banner (like/dislike/comment/diskusi)
+banner.addEventListener('click', async (ev) => {
+  const likeBtn = ev.target.closest('.like-btn');
+  const dislikeBtn = ev.target.closest('.dislike-btn');
+  const commentSend = ev.target.closest('.comment-send');
+  const discussionBtn = ev.target.closest('.chip[data-news-id]');
+
+  if (likeBtn) {
+    const id = likeBtn.dataset.newsId;
+    if (id) toggleNewsLike(id);
+    // Attach counts watcher once
+    watchNewsLikeCountsOnce(id, likeBtn.closest('.slide'));
+    return;
+  }
+  if (dislikeBtn) {
+    const id = dislikeBtn.dataset.newsId;
+    if (id) toggleNewsDislike(id);
+    watchNewsLikeCountsOnce(id, dislikeBtn.closest('.slide'));
+    return;
+  }
+  if (commentSend) {
+    const id = commentSend.dataset.newsId;
+    if (id) {
+      await postNewsComment(id);
+    }
+    return;
+  }
+  if (discussionBtn && discussionBtn.textContent.includes('Diskusi')) {
+    const id = discussionBtn.dataset.newsId;
+    if (id) {
+      prefillFromNews(id);
+    }
+    return;
+  }
+});
+
+// Event delegation for forum list actions (like, open replies, delete)
+listEl.addEventListener('click', (ev)=>{
+  const likeBtn = ev.target.closest('.forum-like-btn');
+  const openRepliesBtn = ev.target.closest('.open-replies-btn');
+  const deleteBtn = ev.target.closest('.delete-post-btn');
+  const newsRef = ev.target.closest('.news-ref a');
+
+  if (likeBtn) {
+    const id = likeBtn.dataset.id;
+    if (id) toggleForumLike(id);
+    return;
+  }
+  if (openRepliesBtn) {
+    const id = openRepliesBtn.dataset.id;
+    if (id) openReplies(id);
+    return;
+  }
+  if (deleteBtn) {
+    const id = deleteBtn.dataset.id;
+    if (id) deleteForumPost(id);
+    return;
+  }
+  if (newsRef) {
+    ev.preventDefault();
+    const nid = newsRef.dataset.newsId;
+    if (nid) prefillFromNews(nid);
+    return;
+  }
+});
+
+/* Fungsi untuk mengganti tab forum */
 function setTab(t){
   document.querySelectorAll('.tab').forEach(el=>el.classList.remove('active'));
   if(t==='all') tabAll.classList.add('active');
@@ -781,22 +963,19 @@ function setTab(t){
 
 /* ================= Inisialisasi Aplikasi ================= */
 (async function init(){
-  // Pastikan Firebase Auth sudah diinisialisasi sebelum memuat data awal
-  // Ini ditangani oleh onAuthStateChanged yang akan memicu loadNews dan loadDiscussions
-  // setelah autentikasi anonim atau login Google selesai.
-  await loadNewsAndRender(); // Muat dan render berita awal
+  // Tampilkan skeletons dan inisialisasi forum + news
+  showBannerSkeleton();
+  await loadNewsAndRender(); // Muat dan render berita awal (akan cek cache)
   setTab('all'); // Set tab default ke 'Semua' dan muat diskusi
 })();
 
-/* Mengekspos fungsi-fungsi ke window agar bisa dipanggil dari inline onclick */
+/* Mengekspos fungsi-fungsi ke window agar bisa dipanggil dari inline onclick jika diperlukan */
 window.prefillFromNews = function(newsId){
   const n = newsItems.find(item => item.id === newsId);
   if(!n) return;
   postInput.value = `[Berita: ${n.title}] `;
   postType.value = 'news';
-  // Gulir ke area posting
   window.scrollTo({top: document.querySelector('.post-row').offsetTop - 40, behavior: 'smooth'});
-  // Fokus ke input setelah menggulir
   setTimeout(() => postInput.focus(), 500);
 };
 window.toggleNewsLike = toggleNewsLike;
@@ -806,6 +985,10 @@ window.toggleForumLike = toggleForumLike;
 window.openReplies = openReplies;
 window.deleteForumPost = deleteForumPost;
 window.sendReply = sendReply;
+
+/* ================= Helper: escapeHtml & escapeId ================= */
+function escapeHtml(s){ return String(s||'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function escapeId(id){ return String(id).replace(/[^a-z0-9_\-]/gi,'_'); }
 </script>
 </body>
 </html>
