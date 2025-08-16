@@ -4,91 +4,114 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Pordisk — Portal Diskusi Berita</title>
+
+<!-- Tailwind CSS CDN -->
 <script src="https://cdn.tailwindcss.com"></script>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
 <style>
-  body { font-family:'Inter',sans-serif; }
-  .slide { @apply absolute inset-0 opacity-0 transition-opacity; }
-  .slide.active { @apply opacity-100 z-10; }
-  .skeleton { background:linear-gradient(90deg,#f3f4f6,#e5e7eb,#f3f4f6); background-size:200% 100%; animation:shimmer 1.5s infinite linear; }
-  @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+  body {
+    font-family: 'Inter', sans-serif;
+    background-color: #f9fafb;
+    color: #111827;
+  }
+  .btn {
+    @apply px-4 py-2 rounded-lg font-medium transition;
+  }
+  .btn-primary {
+    @apply bg-blue-600 text-white hover:bg-blue-700;
+  }
+  .btn-ghost {
+    @apply border border-blue-200 text-blue-600 hover:bg-blue-50;
+  }
+  .btn-danger {
+    @apply bg-red-500 text-white hover:bg-red-600;
+  }
 </style>
 </head>
-<body class="bg-gray-50 text-gray-800">
-<header class="sticky top-0 z-50 bg-gradient-to-r from-blue-100 to-blue-200 shadow">
-  <div class="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
-    <div class="flex items-center gap-2 text-indigo-600 font-bold text-xl">
-      <i class="fas fa-comments"></i> Pordisk
-    </div>
-    <div class="flex items-center gap-2">
-      <div id="headerAvatar" class="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">👤</div>
-      <span id="headerName" class="text-sm">Memuat...</span>
-      <button id="loginBtn" class="px-3 py-1 rounded bg-indigo-600 text-white text-sm">Masuk</button>
-      <button id="logoutBtn" class="px-3 py-1 rounded border border-indigo-600 text-indigo-600 text-sm hidden">Keluar</button>
+<body class="min-h-screen flex flex-col">
+
+<!-- Header -->
+<header class="bg-gradient-to-r from-green-50 to-emerald-100 border-b border-gray-200">
+  <div class="max-w-6xl mx-auto flex items-center justify-between px-4 py-3">
+    <div class="text-2xl font-bold text-blue-700">Pordisk</div>
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-full bg-gray-200 overflow-hidden flex items-center justify-center" id="headerAvatar">
+        <span class="text-lg">👤</span>
+      </div>
+      <span id="headerName" class="text-sm text-gray-600">Memuat...</span>
+      <button id="loginBtn" class="btn btn-primary">Masuk</button>
+      <button id="logoutBtn" class="btn btn-ghost hidden">Keluar</button>
     </div>
   </div>
 </header>
 
-<main class="max-w-6xl mx-auto px-4">
-  <!-- Slider -->
-  <div id="banner" class="relative h-72 md:h-96 rounded-lg overflow-hidden bg-white shadow my-4">
-    <div class="absolute bottom-3 left-0 right-0 flex justify-between px-4 z-20">
-      <button id="prevBtn" class="w-10 h-10 flex items-center justify-center rounded-full bg-black/50 text-white"><i class="fas fa-chevron-left"></i></button>
-      <button id="nextBtn" class="w-10 h-10 flex items-center justify-center rounded-full bg-black/50 text-white"><i class="fas fa-chevron-right"></i></button>
-    </div>
-  </div>
-
-  <!-- Tabs -->
-  <div class="flex gap-2 my-4 text-sm">
-    <button class="tab px-4 py-1 rounded-full border bg-white shadow-sm active" id="tabAll">Semua Diskusi</button>
-    <button class="tab px-4 py-1 rounded-full border bg-white shadow-sm" id="tabNews">Diskusi Berita</button>
-    <button class="tab px-4 py-1 rounded-full border bg-white shadow-sm" id="tabLocal">Diskusi Lokal</button>
-    <button id="refreshNews" class="ml-auto px-4 py-1 rounded-full border bg-white shadow-sm"><i class="fas fa-sync-alt mr-1"></i> Refresh</button>
-  </div>
-
-  <!-- Post Form -->
-  <div class="bg-white rounded-lg shadow p-4 my-4">
-    <div class="flex justify-between text-sm text-gray-500 mb-2">
-      <span>Bagikan pemikiran Anda</span>
-      <span id="postingAs"></span>
-    </div>
-    <textarea id="postInput" class="w-full p-3 border rounded mb-2" rows="3" placeholder="Apa yang ingin Anda diskusikan hari ini?"></textarea>
-    <div class="flex gap-2">
-      <select id="postType" class="border rounded px-2 py-1 flex-1">
-        <option value="news">Diskusi Berita</option>
-        <option value="local">Diskusi Lokal</option>
-      </select>
-      <button id="postBtn" class="px-4 py-2 rounded bg-indigo-600 text-white">Posting</button>
-    </div>
-  </div>
-
-  <!-- Discussions -->
-  <div class="my-4">
-    <h3 class="font-semibold mb-2" id="listTitle">Diskusi Terbaru</h3>
-    <div id="list" class="space-y-4">
-      <div class="bg-white p-4 rounded shadow">
-        <div class="flex items-center gap-3 mb-3">
-          <div class="w-10 h-10 rounded-full skeleton"></div>
-          <div>
-            <div class="skeleton h-4 w-24 mb-1"></div>
-            <div class="skeleton h-3 w-16"></div>
-          </div>
-        </div>
-        <div class="skeleton h-4 w-full mb-1"></div>
-        <div class="skeleton h-4 w-3/4"></div>
+<main class="flex-1">
+  <div class="max-w-6xl mx-auto px-4 py-6">
+    
+    <!-- Banner / Slider -->
+    <div id="banner" class="relative h-80 sm:h-[420px] rounded-xl overflow-hidden shadow-md bg-gray-200">
+      <div class="absolute bottom-4 left-0 right-0 flex justify-between px-4 z-10">
+        <button id="prevBtn" class="bg-black/40 text-white p-2 rounded-full hover:bg-black/60">‹</button>
+        <button id="nextBtn" class="bg-black/40 text-white p-2 rounded-full hover:bg-black/60">›</button>
       </div>
     </div>
-    <button id="moreBtn" class="hidden mx-auto mt-4 px-4 py-2 border rounded text-indigo-600"><i class="fas fa-plus-circle mr-1"></i> Muat lebih banyak</button>
+
+    <!-- Tabs -->
+    <div class="flex flex-wrap items-center justify-between gap-3 mt-6">
+      <div class="flex gap-2">
+        <button class="tab px-4 py-2 rounded-full border text-sm font-medium bg-blue-600 text-white" id="tabAll">Semua</button>
+        <button class="tab px-4 py-2 rounded-full border text-sm font-medium hover:bg-blue-50" id="tabNews">Diskusi Berita</button>
+        <button class="tab px-4 py-2 rounded-full border text-sm font-medium hover:bg-blue-50" id="tabLocal">Diskusi Lokal</button>
+      </div>
+      <button id="refreshNews" class="px-3 py-1.5 text-sm border rounded-lg text-gray-600 hover:bg-gray-100">🔄 Refresh</button>
+    </div>
+
+    <!-- Form Diskusi -->
+    <div class="mt-6 bg-white rounded-xl shadow p-4">
+      <div class="flex justify-between items-center text-sm text-gray-500">
+        <span>Mulai diskusi kamu</span>
+        <span id="postingAs"></span>
+      </div>
+      <div class="mt-3 flex flex-col sm:flex-row gap-3">
+        <textarea id="postInput" placeholder="Tulis pendapatmu..." class="flex-1 border rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"></textarea>
+        <div class="flex sm:flex-col gap-2">
+          <select id="postType" class="border rounded-lg p-2 text-sm focus:ring-1 focus:ring-blue-500">
+            <option value="news">Diskusi Berita</option>
+            <option value="local">Diskusi Lokal</option>
+          </select>
+          <button id="postBtn" class="btn btn-primary">Posting</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Daftar Diskusi -->
+    <div class="mt-6">
+      <h3 class="text-lg font-semibold mb-3">Diskusi Terbaru</h3>
+      <div id="list" class="bg-white rounded-xl shadow p-4 text-sm text-gray-500">Memuat diskusi…</div>
+      <button id="moreBtn" class="mt-3 w-full border border-dashed border-blue-300 rounded-lg py-2 text-blue-600 hover:bg-blue-50 hidden">Muat lebih banyak</button>
+    </div>
   </div>
 </main>
 
-<!-- Firebase -->
+<!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
+
 <script>
-/* ---- Firebase init + fungsi asli kamu tetap dipakai di sini ---- */
+  // Konfigurasi Firebase (sama seperti sebelumnya)
+  const firebaseConfig = {
+    apiKey: "AIzaSyAN825UwYIJ6zGgOpb8fYWZBeBfOSvNNU4",
+    authDomain: "socialnewshariini.firebaseapp.com",
+    projectId: "socialnewshariini",
+    storageBucket: "socialnewshariini.appspot.com",
+    messagingSenderId: "579951188459",
+    appId: "1:579951188459:web:83322616a6bfd971eea1ae",
+    measurementId: "G-7KSKKSPFH4"
+  };
+  firebase.initializeApp(firebaseConfig);
 </script>
 </body>
 </html>
