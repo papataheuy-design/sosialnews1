@@ -67,6 +67,15 @@
   .reply{margin-top:8px;padding:8px;border-radius:8px;background:#f8fafc; border:1px solid #eef;}
   .load-more{display:block;margin:8px auto;background:transparent;border:1px dashed #dbeafe;padding:8px 12px;border-radius:8px;color:var(--primary);cursor:pointer; transition: background-color 0.2s ease;}
   .load-more:hover{background-color:#e0edff;}
+  /* iklan container */
+  .ad-container {
+    margin: 20px 0;
+    padding: 10px;
+    background: #f8fafc;
+    border: 1px dashed #dbeafe;
+    border-radius: 8px;
+    text-align: center;
+  }
 
   /* responsive */
   @media(max-width:720px){
@@ -79,6 +88,10 @@
     .post-row textarea{width: 100%;}
     .post-row > div:last-child { width: 100%; display: flex; gap: 8px;}
     .post-row > div:last-child select, .post-row > div:last-child button { flex: 1; }
+    .ad-container {
+      margin: 15px 0;
+      padding: 8px;
+    }
   }
 
   /* skeleton */
@@ -150,6 +163,13 @@
     <div id="list" class="list card" style="padding:14px">
       <div class="small">Memuat diskusi…</div>
     </div>
+    
+    <!-- Iklan di sela-sela forum diskusi -->
+    <div class="ad-container">
+      <script async="async" data-cfasync="false" src="//pl27436559.profitableratecpm.com/fbd125ee072c7e3ecae309eacffead0c/invoke.js"></script>
+      <div id="container-fbd125ee072c7e3ecae309eacffead0c"></div>
+    </div>
+    
     <button id="moreBtn" class="load-more" style="display:none">Muat lebih banyak</button>
   </div>
 </div>
