@@ -27,6 +27,8 @@
   .btn.ghost:hover{background-color:rgba(67,97,238,0.05);}
   .btn.danger{background-color: #ef4444; color: #fff; border: none;}
   .btn.danger:hover{background-color: #dc2626;}
+  .btn.secondary{background-color: #e9ecef; color: #495057; border: none;}
+  .btn.secondary:hover{background-color: #dee2e6;}
   .container{max-width:980px;margin:18px auto;padding:0 16px}
   /* Banner yang lebih pendek */
   .banner{position:relative;height:280px;border-radius:14px;overflow:hidden;background:#eee;box-shadow:0 6px 18px rgba(16,24,40,0.06)}
@@ -55,10 +57,21 @@
   .acts{display:flex;gap:10px;align-items:center;margin-top:10px}
   .acts button{background:transparent;border:1px solid #eee;padding:6px 10px;border-radius:999px;cursor:pointer;display:inline-flex;gap:8px;align-items:center; transition: background-color 0.2s ease;}
   .acts button:hover{background-color:#f5f5f5;}
+  .acts button.active{background-color:#e0edff; border-color:#d0e0ff;}
   .reply-list{margin-top:10px;padding-left:42px; border-left: 2px dashed #e6eef0;}
   .reply{margin-top:8px;padding:8px;border-radius:8px;background:#f8fafc; border:1px solid #eef;}
   .load-more{display:block;margin:8px auto;background:transparent;border:1px dashed #dbeafe;padding:8px 12px;border-radius:8px;color:var(--primary);cursor:pointer; transition: background-color 0.2s ease;}
   .load-more:hover{background-color:#e0edff;}
+  .discussion-tabs{display:flex;gap:4px;margin-bottom:12px;}
+  .discussion-tabs button{padding:8px 12px;border-radius:8px;background:#f1f3f5;border:none;cursor:pointer;transition:background-color 0.2s ease;}
+  .discussion-tabs button.active{background:var(--primary);color:#fff;}
+  .discussion-tabs button:hover:not(.active){background:#e9ecef;}
+  .news-tag{display:inline-block;background:#e6f7ff;color:#1890ff;padding:2px 8px;border-radius:4px;font-size:12px;margin-right:6px;}
+  .local-tag{display:inline-block;background:#f6ffed;color:#52c41a;padding:2px 8px;border-radius:4px;font-size:12px;margin-right:6px;}
+  .empty-state{text-align:center;padding:20px;color:#6b7280;}
+  .empty-state svg{width:48px;height:48px;margin-bottom:12px;opacity:0.5;}
+  .discussion-preview{background:#f8f9fa;border-radius:8px;padding:12px;margin-top:12px;border:1px dashed #dee2e6;}
+  .discussion-preview h4{font-weight:600;margin-bottom:8px;}
 
   @media(max-width:720px){
     .banner{height:220px}
@@ -71,6 +84,8 @@
     .post-row textarea{width: 100%;}
     .post-row > div:last-child { width: 100%; display: flex; gap: 8px;}
     .post-row > div:last-child select, .post-row > div:last-child button { flex: 1; }
+    .discussion-tabs{overflow-x:auto;padding-bottom:8px;}
+    .discussion-tabs button{flex-shrink:0;}
   }
 </style>
 </head>
@@ -116,12 +131,22 @@
           <button id="postBtn" class="btn">Posting</button>
         </div>
       </div>
+      <div id="discussionPreview" class="discussion-preview" style="display:none">
+        <h4>Preview Diskusi</h4>
+        <div id="previewContent"></div>
+      </div>
     </div>
   </div>
 
   <!-- Daftar Diskusi -->
   <div class="section">
-    <h3 id="listTitle">Diskusi Terbaru</h3>
+    <div class="discussion-tabs">
+      <button class="active" data-tab="all">Semua Diskusi</button>
+      <button data-tab="news">Diskusi Berita</button>
+      <button data-tab="local">Diskusi Lokal</button>
+      <button data-tab="popular">Populer</button>
+      <button data-tab="mine">Diskusi Saya</button>
+    </div>
     <div id="list" class="list card" style="padding:14px">
       <div class="small">Memuat diskusi…</div>
     </div>
@@ -151,6 +176,9 @@
   let newsItems = [];
   let currentSlideIndex = 0;
   let slideInterval;
+  let currentTab = 'all';
+  let lastVisibleDoc = null;
+  let hasMorePosts = true;
 
   // ================= ELEMEN DOM =================
   const loginBtn = document.getElementById('loginBtn');
@@ -163,7 +191,12 @@
   const nextBtn = document.getElementById('nextBtn');
   const postInput = document.getElementById('postInput');
   const postBtn = document.getElementById('postBtn');
+  const postType = document.getElementById('postType');
   const listEl = document.getElementById('list');
+  const moreBtn = document.getElementById('moreBtn');
+  const discussionPreview = document.getElementById('discussionPreview');
+  const previewContent = document.getElementById('previewContent');
+  const tabButtons = document.querySelectorAll('.discussion-tabs button');
 
   // ================= FUNGSI UTAMA =================
 
@@ -193,6 +226,9 @@
         logoutBtn.style.display = 'none';
         headerAvatar.innerHTML = '<span style="font-weight:700;color:#111">👤</span>';
       }
+      
+      // Reload discussions when auth state changes
+      loadDiscussions();
     });
 
     loginBtn.addEventListener('click', () => {
@@ -347,76 +383,181 @@
           author: currentUser.displayName || currentUser.email,
           authorId: currentUser.uid,
           authorPhoto: currentUser.photoURL || null,
-          type: document.getElementById('postType').value,
+          type: postType.value,
           likes: [],
-          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          replyCount: 0,
+          viewCount: 0,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         });
         postInput.value = '';
+        discussionPreview.style.display = 'none';
       } catch (error) {
         console.error('Error posting:', error);
         alert('Gagal memposting diskusi');
       }
     });
 
-    // Load diskusi
+    // Preview diskusi saat mengetik
+    postInput.addEventListener('input', () => {
+      const text = postInput.value.trim();
+      if (text) {
+        discussionPreview.style.display = 'block';
+        previewContent.innerHTML = `
+          <div class="meta">
+            <div style="display:flex;gap:10px;align-items:center">
+              <div class="avatar">
+                ${currentUser?.photoURL ? `<img src="${currentUser.photoURL}">` : `<span>${(currentUser?.displayName || currentUser?.email || 'Tamu').charAt(0).toUpperCase()}</span>`}
+              </div>
+              <div>
+                <div class="name">${currentUser?.displayName || currentUser?.email || 'Tamu'}</div>
+                <div class="small">Sekarang</div>
+              </div>
+            </div>
+          </div>
+          <div class="text">${text}</div>
+          <div class="small" style="margin-top:8px">
+            ${postType.value === 'news' ? '<span class="news-tag">Diskusi Berita</span>' : '<span class="local-tag">Diskusi Lokal</span>'}
+          </div>
+        `;
+      } else {
+        discussionPreview.style.display = 'none';
+      }
+    });
+
+    // Tab diskusi
+    tabButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        tabButtons.forEach(btn => btn.classList.remove('active'));
+        button.classList.add('active');
+        currentTab = button.dataset.tab;
+        lastVisibleDoc = null;
+        hasMorePosts = true;
+        loadDiscussions();
+      });
+    });
+
+    // Load more button
+    moreBtn.addEventListener('click', loadDiscussions);
+
+    // Load diskusi awal
     loadDiscussions();
   }
 
   function loadDiscussions() {
-    db.collection('forum_posts')
-      .orderBy('createdAt', 'desc')
-      .limit(10)
-      .onSnapshot(snapshot => {
-        listEl.innerHTML = '';
-        
-        if (snapshot.empty) {
-          listEl.innerHTML = '<div class="small">Belum ada diskusi</div>';
+    let query = db.collection('forum_posts');
+    
+    // Apply filters based on current tab
+    switch(currentTab) {
+      case 'news':
+        query = query.where('type', '==', 'news');
+        break;
+      case 'local':
+        query = query.where('type', '==', 'local');
+        break;
+      case 'popular':
+        query = query.orderBy('likes', 'desc');
+        break;
+      case 'mine':
+        if (!currentUser) {
+          listEl.innerHTML = '<div class="empty-state"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg><div>Silakan login untuk melihat diskusi Anda</div></div>';
+          moreBtn.style.display = 'none';
           return;
         }
-
-        snapshot.forEach(doc => {
-          const data = doc.data();
-          const item = document.createElement('div');
-          item.className = 'item';
-          item.innerHTML = `
-            <div class="meta">
-              <div style="display:flex;gap:10px;align-items:center">
-                <div class="avatar">
-                  ${data.authorPhoto ? `<img src="${data.authorPhoto}">` : `<span>${data.author.charAt(0).toUpperCase()}</span>`}
-                </div>
-                <div>
-                  <div class="name">${data.author}</div>
-                  <div class="small">${formatDate(data.createdAt?.toDate())}</div>
-                </div>
+        query = query.where('authorId', '==', currentUser.uid);
+        break;
+    }
+    
+    // For pagination
+    if (lastVisibleDoc && currentTab !== 'popular') {
+      query = query.startAfter(lastVisibleDoc);
+    }
+    
+    // Default ordering
+    if (currentTab !== 'popular') {
+      query = query.orderBy('createdAt', 'desc');
+    }
+    
+    query = query.limit(10);
+    
+    query.get().then(snapshot => {
+      if (snapshot.empty) {
+        if (lastVisibleDoc === null) { // First load
+          listEl.innerHTML = '<div class="empty-state"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg><div>Belum ada diskusi</div></div>';
+        }
+        hasMorePosts = false;
+        moreBtn.style.display = 'none';
+        return;
+      }
+      
+      if (lastVisibleDoc === null) {
+        listEl.innerHTML = ''; // Clear only on first load
+      }
+      
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        const item = document.createElement('div');
+        item.className = 'item';
+        item.dataset.id = doc.id;
+        item.innerHTML = `
+          <div class="meta">
+            <div style="display:flex;gap:10px;align-items:center">
+              <div class="avatar">
+                ${data.authorPhoto ? `<img src="${data.authorPhoto}">` : `<span>${data.author.charAt(0).toUpperCase()}</span>`}
+              </div>
+              <div>
+                <div class="name">${data.author}</div>
+                <div class="small">${formatDate(data.createdAt?.toDate())}</div>
               </div>
             </div>
-            <div class="text">${data.text}</div>
-            <div class="acts">
-              <button class="forum-like-btn" data-id="${doc.id}">
-                👍 <span>${data.likes?.length || 0}</span>
-              </button>
-              <button class="open-replies-btn" data-id="${doc.id}">
-                💬 Balasan
-              </button>
-              ${currentUser?.uid === data.authorId ? 
-                `<button class="btn danger delete-post-btn" data-id="${doc.id}">🗑 Hapus</button>` : ''}
-            </div>
-            <div id="replies-${doc.id}" class="reply-list" style="display:none">
-              <div class="reply">
-                <textarea class="reply-input" placeholder="Tulis balasan..." 
-                  style="width:100%;padding:8px;border-radius:8px;border:1px solid #eee; outline:none;"></textarea>
-                <div style="margin-top:8px;display:flex;gap:8px;justify-content:flex-end">
-                  <button class="btn send-reply-btn" data-id="${doc.id}">Kirim</button>
-                </div>
+          </div>
+          <div class="text">${data.text}</div>
+          <div class="small" style="margin-top:8px">
+            ${data.type === 'news' ? '<span class="news-tag">Diskusi Berita</span>' : '<span class="local-tag">Diskusi Lokal</span>'}
+            <span>👁 ${data.viewCount || 0} dilihat</span>
+          </div>
+          <div class="acts">
+            <button class="forum-like-btn ${data.likes?.includes(currentUser?.uid) ? 'active' : ''}" data-id="${doc.id}">
+              👍 <span>${data.likes?.length || 0}</span>
+            </button>
+            <button class="open-replies-btn" data-id="${doc.id}">
+              💬 <span>${data.replyCount || 0}</span> Balasan
+            </button>
+            ${currentUser?.uid === data.authorId ? 
+              `<button class="btn danger delete-post-btn" data-id="${doc.id}">🗑 Hapus</button>` : ''}
+          </div>
+          <div id="replies-${doc.id}" class="reply-list" style="display:none">
+            <div class="reply">
+              <textarea class="reply-input" placeholder="Tulis balasan..." 
+                style="width:100%;padding:8px;border-radius:8px;border:1px solid #eee; outline:none;"></textarea>
+              <div style="margin-top:8px;display:flex;gap:8px;justify-content:flex-end">
+                <button class="btn send-reply-btn" data-id="${doc.id}">Kirim</button>
               </div>
             </div>
-          `;
-          listEl.appendChild(item);
-        });
-
-        // Attach event listeners
-        attachEventListeners();
+          </div>
+        `;
+        listEl.appendChild(item);
+        
+        // Increment view count when post is viewed
+        if (currentUser && currentUser.uid !== data.authorId) {
+          db.collection('forum_posts').doc(doc.id).update({
+            viewCount: firebase.firestore.FieldValue.increment(1)
+          });
+        }
       });
+      
+      // Update last visible doc for pagination
+      lastVisibleDoc = snapshot.docs[snapshot.docs.length - 1];
+      hasMorePosts = snapshot.docs.length >= 10;
+      moreBtn.style.display = hasMorePosts ? 'block' : 'none';
+      
+      // Attach event listeners
+      attachEventListeners();
+    }).catch(error => {
+      console.error('Error loading discussions:', error);
+      listEl.innerHTML = '<div class="small">Gagal memuat diskusi</div>';
+      moreBtn.style.display = 'none';
+    });
   }
 
   function attachEventListeners() {
@@ -424,11 +565,15 @@
     document.querySelectorAll('.open-replies-btn').forEach(btn => {
       btn.addEventListener('click', function() {
         const postId = this.getAttribute('data-id');
+        const postElement = this.closest('.item');
         const replies = document.getElementById(`replies-${postId}`);
-        replies.style.display = replies.style.display === 'none' ? 'block' : 'none';
+        const isOpening = replies.style.display === 'none';
+        
+        replies.style.display = isOpening ? 'block' : 'none';
+        this.classList.toggle('active', isOpening);
         
         // Load replies when first opened
-        if (replies.style.display === 'block' && !replies.dataset.loaded) {
+        if (isOpening && !replies.dataset.loaded) {
           loadReplies(postId, replies);
           replies.dataset.loaded = 'true';
         }
@@ -465,8 +610,12 @@
         const newsId = e.target.closest('.chip').getAttribute('data-news-id');
         if (newsId && newsItems[newsId]) {
           postInput.value = `[Berita: ${newsItems[newsId].title}] `;
-          document.getElementById('postType').value = 'news';
+          postType.value = 'news';
           postInput.focus();
+          window.scrollTo({
+            top: postInput.offsetTop - 20,
+            behavior: 'smooth'
+          });
         }
       }
     });
@@ -500,10 +649,20 @@
                 <div class="name">${data.author}</div>
                 <div class="small">${formatDate(data.createdAt?.toDate())}</div>
               </div>
+              ${currentUser?.uid === data.authorId ? 
+                `<button class="btn danger delete-reply-btn" style="margin-left:auto;padding:4px 8px;font-size:12px;" data-id="${doc.id}">Hapus</button>` : ''}
             </div>
             <div style="margin-top:8px">${data.text}</div>
           `;
           container.insertBefore(reply, form);
+        });
+
+        // Attach delete handlers for replies
+        document.querySelectorAll('.delete-reply-btn').forEach(btn => {
+          btn.addEventListener('click', function() {
+            const replyId = this.getAttribute('data-id');
+            deleteReply(replyId, postId);
+          });
         });
       }, error => {
         console.error('Error loading replies:', error);
@@ -522,6 +681,7 @@
     if (!text) return;
 
     try {
+      // Add the reply
       await db.collection('forum_replies').add({
         postId,
         text,
@@ -530,6 +690,13 @@
         authorPhoto: currentUser.photoURL || null,
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
       });
+      
+      // Update reply count
+      await db.collection('forum_posts').doc(postId).update({
+        replyCount: firebase.firestore.FieldValue.increment(1),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      
       input.value = '';
     } catch (error) {
       console.error('Error sending reply:', error);
@@ -587,6 +754,26 @@
     } catch (error) {
       console.error('Error deleting post:', error);
       alert('Gagal menghapus postingan');
+    }
+  }
+
+  async function deleteReply(replyId, postId) {
+    if (!currentUser) return;
+    
+    if (!confirm('Apakah Anda yakin ingin menghapus balasan ini?')) return;
+
+    try {
+      // Delete the reply
+      await db.collection('forum_replies').doc(replyId).delete();
+      
+      // Decrement reply count
+      await db.collection('forum_posts').doc(postId).update({
+        replyCount: firebase.firestore.FieldValue.increment(-1),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    } catch (error) {
+      console.error('Error deleting reply:', error);
+      alert('Gagal menghapus balasan');
     }
   }
 
