@@ -72,6 +72,7 @@
   .empty-state svg{width:48px;height:48px;margin-bottom:12px;opacity:0.5;}
   .discussion-preview{background:#f8f9fa;border-radius:8px;padding:12px;margin-top:12px;border:1px dashed #dee2e6;}
   .discussion-preview h4{font-weight:600;margin-bottom:8px;}
+  .discussion-actions{display:flex;gap:8px;margin-left:auto;}
 
   @media(max-width:720px){
     .banner{height:220px}
@@ -86,6 +87,7 @@
     .post-row > div:last-child select, .post-row > div:last-child button { flex: 1; }
     .discussion-tabs{overflow-x:auto;padding-bottom:8px;}
     .discussion-tabs button{flex-shrink:0;}
+    .discussion-actions{flex-direction:column;margin-left:0;}
   }
 </style>
 </head>
@@ -509,6 +511,10 @@
                 <div class="name">${data.author}</div>
                 <div class="small">${formatDate(data.createdAt?.toDate())}</div>
               </div>
+              <div class="discussion-actions">
+                ${currentUser?.uid === data.authorId ? 
+                  `<button class="btn danger delete-post-btn" data-id="${doc.id}">Hapus</button>` : ''}
+              </div>
             </div>
           </div>
           <div class="text">${data.text}</div>
@@ -523,8 +529,6 @@
             <button class="open-replies-btn" data-id="${doc.id}">
               💬 <span>${data.replyCount || 0}</span> Balasan
             </button>
-            ${currentUser?.uid === data.authorId ? 
-              `<button class="btn danger delete-post-btn" data-id="${doc.id}">🗑 Hapus</button>` : ''}
           </div>
           <div id="replies-${doc.id}" class="reply-list" style="display:none">
             <div class="reply">
@@ -650,7 +654,7 @@
                 <div class="small">${formatDate(data.createdAt?.toDate())}</div>
               </div>
               ${currentUser?.uid === data.authorId ? 
-                `<button class="btn danger delete-reply-btn" style="margin-left:auto;padding:4px 8px;font-size:12px;" data-id="${doc.id}">Hapus</button>` : ''}
+                `<button class="btn danger delete-reply-btn" style="margin-left:auto;padding:4px 8px;font-size:12px;" data-id="${doc.id}" data-post-id="${postId}">Hapus</button>` : ''}
             </div>
             <div style="margin-top:8px">${data.text}</div>
           `;
@@ -661,6 +665,7 @@
         document.querySelectorAll('.delete-reply-btn').forEach(btn => {
           btn.addEventListener('click', function() {
             const replyId = this.getAttribute('data-id');
+            const postId = this.getAttribute('data-post-id');
             deleteReply(replyId, postId);
           });
         });
@@ -751,6 +756,9 @@
       });
       
       await batch.commit();
+      
+      // Remove the post from DOM
+      document.querySelector(`.item[data-id="${postId}"]`)?.remove();
     } catch (error) {
       console.error('Error deleting post:', error);
       alert('Gagal menghapus postingan');
@@ -771,6 +779,9 @@
         replyCount: firebase.firestore.FieldValue.increment(-1),
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
       });
+      
+      // Remove the reply from DOM
+      document.querySelector(`.delete-reply-btn[data-id="${replyId}"]`)?.closest('.reply')?.remove();
     } catch (error) {
       console.error('Error deleting reply:', error);
       alert('Gagal menghapus balasan');
