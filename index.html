@@ -146,6 +146,7 @@
       <button class="active" data-tab="all">Semua Diskusi</button>
       <button data-tab="news">Diskusi Berita</button>
       <button data-tab="local">Diskusi Lokal</button>
+      <button data-tab="popular">Populer</button>
       <button data-tab="mine">Diskusi Saya</button>
     </div>
     <div id="list" class="list card" style="padding:14px">
@@ -316,30 +317,21 @@
       banner.appendChild(slide);
     });
 
+    // Tambahkan navigasi slider
+    const nav = document.createElement('div');
+    nav.className = 'slider-nav';
+    nav.innerHTML = `
+      <button id="prevBtn">‹</button>
+      <button id="nextBtn">›</button>
+    `;
+    banner.appendChild(nav);
+
     // Setup slider controls
     setupSlider();
-    
-    // Event delegation untuk tombol diskusi berita
-    banner.addEventListener('click', function(e) {
-      if (e.target.closest('.chip') && e.target.closest('.chip').textContent.includes('Diskusi')) {
-        const newsId = e.target.closest('.chip').getAttribute('data-news-id');
-        if (newsId && newsItems[newsId]) {
-          postInput.value = `[Berita: ${newsItems[newsId].title}] `;
-          postType.value = 'news';
-          postInput.focus();
-          window.scrollTo({
-            top: postInput.offsetTop - 20,
-            behavior: 'smooth'
-          });
-        }
-      }
-    });
   }
 
   function setupSlider() {
     const slides = document.querySelectorAll('.slide');
-    if (slides.length === 0) return;
-    
     let currentIndex = 0;
 
     function showSlide(index) {
@@ -398,11 +390,6 @@
         });
         postInput.value = '';
         discussionPreview.style.display = 'none';
-        
-        // Reload diskusi setelah posting baru
-        lastVisibleDoc = null;
-        hasMorePosts = true;
-        loadDiscussions();
       } catch (error) {
         console.error('Error posting:', error);
         alert('Gagal memposting diskusi');
@@ -453,56 +440,6 @@
 
     // Load diskusi awal
     loadDiscussions();
-    
-    // Event delegation untuk semua interaksi dinamis
-    setupEventDelegation();
-  }
-
-  function setupEventDelegation() {
-    // Event delegation untuk like, balasan, dan hapus
-    listEl.addEventListener('click', function(e) {
-      // Tombol like
-      if (e.target.closest('.forum-like-btn')) {
-        const postId = e.target.closest('.forum-like-btn').getAttribute('data-id');
-        likePost(postId);
-      }
-      
-      // Tombol balasan
-      if (e.target.closest('.open-replies-btn')) {
-        const btn = e.target.closest('.open-replies-btn');
-        const postId = btn.getAttribute('data-id');
-        const replies = document.getElementById(`replies-${postId}`);
-        const isOpening = replies.style.display === 'none';
-        
-        replies.style.display = isOpening ? 'block' : 'none';
-        btn.classList.toggle('active', isOpening);
-        
-        // Load replies when first opened
-        if (isOpening && !replies.dataset.loaded) {
-          loadReplies(postId, replies);
-          replies.dataset.loaded = 'true';
-        }
-      }
-      
-      // Tombol kirim balasan
-      if (e.target.closest('.send-reply-btn')) {
-        const postId = e.target.closest('.send-reply-btn').getAttribute('data-id');
-        sendReply(postId);
-      }
-      
-      // Tombol hapus posting
-      if (e.target.closest('.delete-post-btn')) {
-        const postId = e.target.closest('.delete-post-btn').getAttribute('data-id');
-        deletePost(postId);
-      }
-      
-      // Tombol hapus balasan
-      if (e.target.closest('.delete-reply-btn')) {
-        const replyId = e.target.closest('.delete-reply-btn').getAttribute('data-id');
-        const postId = e.target.closest('.delete-reply-btn').getAttribute('data-post-id');
-        deleteReply(replyId, postId);
-      }
-    });
   }
 
   function loadDiscussions() {
@@ -515,6 +452,9 @@
         break;
       case 'local':
         query = query.where('type', '==', 'local');
+        break;
+      case 'popular':
+        query = query.orderBy('likes', 'desc');
         break;
       case 'mine':
         if (!currentUser) {
@@ -532,7 +472,9 @@
     }
     
     // Default ordering
-    query = query.orderBy('createdAt', 'desc');
+    if (currentTab !== 'popular') {
+      query = query.orderBy('createdAt', 'desc');
+    }
     
     query = query.limit(10);
     
@@ -609,6 +551,8 @@
       hasMorePosts = snapshot.docs.length >= 10;
       moreBtn.style.display = hasMorePosts ? 'block' : 'none';
       
+      // Attach event listeners
+      attachEventListeners();
     }).catch(error => {
       console.error('Error loading discussions:', error);
       listEl.innerHTML = '<div class="small">Gagal memuat diskusi</div>';
@@ -616,47 +560,115 @@
     });
   }
 
-  async function loadReplies(postId, container) {
-    try {
-      const snapshot = await db.collection('forum_replies')
-        .where('postId', '==', postId)
-        .orderBy('createdAt', 'asc')
-        .get();
-      
-      // Clear existing replies except the form
-      const form = container.querySelector('.reply');
-      container.innerHTML = '';
-      if (form) container.appendChild(form);
-      
-      if (snapshot.empty) {
-        container.insertAdjacentHTML('afterbegin', '<div class="small">Belum ada balasan</div>');
-        return;
-      }
-
-      snapshot.forEach(doc => {
-        const data = doc.data();
-        const reply = document.createElement('div');
-        reply.className = 'reply';
-        reply.innerHTML = `
-          <div style="display:flex;gap:10px;align-items:center">
-            <div class="avatar">
-              ${data.authorPhoto ? `<img src="${data.authorPhoto}">` : `<span>${data.author.charAt(0).toUpperCase()}</span>`}
-            </div>
-            <div>
-              <div class="name">${data.author}</div>
-              <div class="small">${formatDate(data.createdAt?.toDate())}</div>
-            </div>
-            ${currentUser?.uid === data.authorId ? 
-              `<button class="btn danger delete-reply-btn" style="margin-left:auto;padding:4px 8px;font-size:12px;" data-id="${doc.id}" data-post-id="${postId}">Hapus</button>` : ''}
-          </div>
-          <div style="margin-top:8px">${data.text}</div>
-        `;
-        container.insertBefore(reply, form);
+  function attachEventListeners() {
+    // Open replies
+    document.querySelectorAll('.open-replies-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const postId = this.getAttribute('data-id');
+        const postElement = this.closest('.item');
+        const replies = document.getElementById(`replies-${postId}`);
+        const isOpening = replies.style.display === 'none';
+        
+        replies.style.display = isOpening ? 'block' : 'none';
+        this.classList.toggle('active', isOpening);
+        
+        // Load replies when first opened
+        if (isOpening && !replies.dataset.loaded) {
+          loadReplies(postId, replies);
+          replies.dataset.loaded = 'true';
+        }
       });
-    } catch (error) {
-      console.error('Error loading replies:', error);
-      container.innerHTML = '<div class="small">Gagal memuat balasan</div>';
-    }
+    });
+
+    // Send reply
+    document.querySelectorAll('.send-reply-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const postId = this.getAttribute('data-id');
+        sendReply(postId);
+      });
+    });
+
+    // Like post
+    document.querySelectorAll('.forum-like-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const postId = this.getAttribute('data-id');
+        likePost(postId);
+      });
+    });
+
+    // Delete post
+    document.querySelectorAll('.delete-post-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const postId = this.getAttribute('data-id');
+        deletePost(postId);
+      });
+    });
+
+    // News discussion
+    document.addEventListener('click', function(e) {
+      if (e.target.closest('.chip') && e.target.closest('.chip').textContent.includes('Diskusi')) {
+        const newsId = e.target.closest('.chip').getAttribute('data-news-id');
+        if (newsId && newsItems[newsId]) {
+          postInput.value = `[Berita: ${newsItems[newsId].title}] `;
+          postType.value = 'news';
+          postInput.focus();
+          window.scrollTo({
+            top: postInput.offsetTop - 20,
+            behavior: 'smooth'
+          });
+        }
+      }
+    });
+  }
+
+  async function loadReplies(postId, container) {
+    db.collection('forum_replies')
+      .where('postId', '==', postId)
+      .orderBy('createdAt', 'asc')
+      .onSnapshot(snapshot => {
+        // Clear existing replies except the form
+        const form = container.querySelector('.reply');
+        container.innerHTML = '';
+        if (form) container.appendChild(form);
+        
+        if (snapshot.empty) {
+          container.insertAdjacentHTML('afterbegin', '<div class="small">Belum ada balasan</div>');
+          return;
+        }
+
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          const reply = document.createElement('div');
+          reply.className = 'reply';
+          reply.innerHTML = `
+            <div style="display:flex;gap:10px;align-items:center">
+              <div class="avatar">
+                ${data.authorPhoto ? `<img src="${data.authorPhoto}">` : `<span>${data.author.charAt(0).toUpperCase()}</span>`}
+              </div>
+              <div>
+                <div class="name">${data.author}</div>
+                <div class="small">${formatDate(data.createdAt?.toDate())}</div>
+              </div>
+              ${currentUser?.uid === data.authorId ? 
+                `<button class="btn danger delete-reply-btn" style="margin-left:auto;padding:4px 8px;font-size:12px;" data-id="${doc.id}" data-post-id="${postId}">Hapus</button>` : ''}
+            </div>
+            <div style="margin-top:8px">${data.text}</div>
+          `;
+          container.insertBefore(reply, form);
+        });
+
+        // Attach delete handlers for replies
+        document.querySelectorAll('.delete-reply-btn').forEach(btn => {
+          btn.addEventListener('click', function() {
+            const replyId = this.getAttribute('data-id');
+            const postId = this.getAttribute('data-post-id');
+            deleteReply(replyId, postId);
+          });
+        });
+      }, error => {
+        console.error('Error loading replies:', error);
+        container.innerHTML = '<div class="small">Gagal memuat balasan</div>';
+      });
   }
 
   async function sendReply(postId) {
@@ -687,11 +699,6 @@
       });
       
       input.value = '';
-      
-      // Reload replies
-      const repliesContainer = document.getElementById(`replies-${postId}`);
-      repliesContainer.dataset.loaded = 'false';
-      loadReplies(postId, repliesContainer);
     } catch (error) {
       console.error('Error sending reply:', error);
       alert('Gagal mengirim balasan');
