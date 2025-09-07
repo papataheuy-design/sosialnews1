@@ -30,7 +30,6 @@
   .btn.secondary{background-color: #e9ecef; color: #495057; border: none;}
   .btn.secondary:hover{background-color: #dee2e6;}
   .container{max-width:980px;margin:18px auto;padding:0 16px}
-  /* Banner yang lebih pendek */
   .banner{position:relative;height:280px;border-radius:14px;overflow:hidden;background:#eee;box-shadow:0 6px 18px rgba(16,24,40,0.06)}
   .slide{position:absolute;inset:0;opacity:0;transition:opacity .8s ease, transform .5s ease;display:flex;align-items:flex-end}
   .slide.active{opacity:1; z-index: 1;}
@@ -90,6 +89,7 @@
     .discussion-actions{flex-direction:column;margin-left:0;}
   }
 </style>
+
 </head>
 <body>
 <header>
@@ -311,10 +311,6 @@
           <div class="actions">
             <a class="chip" href="${news.url}" target="_blank" rel="noopener"><span>🔗</span> ${news.source}</a>
             <button class="chip" data-news-id="${index}">💬 Diskusi</button>
-            <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
-              <button class="chip like-btn" data-news-id="${index}">👍 <span class="nl-count">0</span></button>
-              <button class="chip dislike-btn" data-news-id="${index}">👎 <span class="nd-count">0</span></button>
-            </div>
           </div>
         </div>
       `;
@@ -817,5 +813,6 @@
   // Jalankan aplikasi
   initApp();
 </script>
+
 </body>
 </html>
