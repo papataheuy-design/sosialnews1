@@ -617,44 +617,46 @@
   }
 
   async function loadReplies(postId, container) {
-    db.collection('forum_replies')
-      .where('postId', '==', postId)
-      .orderBy('createdAt', 'asc')
-      .onSnapshot(snapshot => {
-        // Clear existing replies except the form
-        const form = container.querySelector('.reply');
-        container.innerHTML = '';
-        if (form) container.appendChild(form);
-        
-        if (snapshot.empty) {
-          container.insertAdjacentHTML('afterbegin', '<div class="small">Belum ada balasan</div>');
-          return;
-        }
+    try {
+      const snapshot = await db.collection('forum_replies')
+        .where('postId', '==', postId)
+        .orderBy('createdAt', 'asc')
+        .get();
+      
+      // Clear existing replies except the form
+      const form = container.querySelector('.reply');
+      container.innerHTML = '';
+      if (form) container.appendChild(form);
+      
+      if (snapshot.empty) {
+        container.insertAdjacentHTML('afterbegin', '<div class="small">Belum ada balasan</div>');
+        return;
+      }
 
-        snapshot.forEach(doc => {
-          const data = doc.data();
-          const reply = document.createElement('div');
-          reply.className = 'reply';
-          reply.innerHTML = `
-            <div style="display:flex;gap:10px;align-items:center">
-              <div class="avatar">
-                ${data.authorPhoto ? `<img src="${data.authorPhoto}">` : `<span>${data.author.charAt(0).toUpperCase()}</span>`}
-              </div>
-              <div>
-                <div class="name">${data.author}</div>
-                <div class="small">${formatDate(data.createdAt?.toDate())}</div>
-              </div>
-              ${currentUser?.uid === data.authorId ? 
-                `<button class="btn danger delete-reply-btn" style="margin-left:auto;padding:4px 8px;font-size:12px;" data-id="${doc.id}" data-post-id="${postId}">Hapus</button>` : ''}
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        const reply = document.createElement('div');
+        reply.className = 'reply';
+        reply.innerHTML = `
+          <div style="display:flex;gap:10px;align-items:center">
+            <div class="avatar">
+              ${data.authorPhoto ? `<img src="${data.authorPhoto}">` : `<span>${data.author.charAt(0).toUpperCase()}</span>`}
             </div>
-            <div style="margin-top:8px">${data.text}</div>
-          `;
-          container.insertBefore(reply, form);
-        });
-      }, error => {
-        console.error('Error loading replies:', error);
-        container.innerHTML = '<div class="small">Gagal memuat balasan</div>';
+            <div>
+              <div class="name">${data.author}</div>
+              <div class="small">${formatDate(data.createdAt?.toDate())}</div>
+            </div>
+            ${currentUser?.uid === data.authorId ? 
+              `<button class="btn danger delete-reply-btn" style="margin-left:auto;padding:4px 8px;font-size:12px;" data-id="${doc.id}" data-post-id="${postId}">Hapus</button>` : ''}
+          </div>
+          <div style="margin-top:8px">${data.text}</div>
+        `;
+        container.insertBefore(reply, form);
       });
+    } catch (error) {
+      console.error('Error loading replies:', error);
+      container.innerHTML = '<div class="small">Gagal memuat balasan</div>';
+    }
   }
 
   async function sendReply(postId) {
@@ -685,6 +687,11 @@
       });
       
       input.value = '';
+      
+      // Reload replies
+      const repliesContainer = document.getElementById(`replies-${postId}`);
+      repliesContainer.dataset.loaded = 'false';
+      loadReplies(postId, repliesContainer);
     } catch (error) {
       console.error('Error sending reply:', error);
       alert('Gagal mengirim balasan');
